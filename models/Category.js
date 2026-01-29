@@ -20,6 +20,11 @@ module.exports = (sequelize) => {
             type: DataTypes.STRING(500),
             allowNull: true
         },
+        time_slots: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            defaultValue: [],
+        },
         status: {
             type: DataTypes.TINYINT,
             allowNull: false,
@@ -34,9 +39,10 @@ module.exports = (sequelize) => {
 
     // Define association
     Category.associate = (models) => {
-        Category.hasMany(models.TimeSlot, {
+        // Category can have many sales
+        Category.hasMany(models.Sales, {
             foreignKey: 'category_id',
-            as: 'timeSlots'
+            as: 'sales'
         });
     };
 

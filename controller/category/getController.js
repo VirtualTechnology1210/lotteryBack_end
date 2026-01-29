@@ -1,9 +1,9 @@
 /**
  * Get Category Controller
- * Handles fetching categories
+ * Handles fetching categories with time slots
  */
 
-const { Category, TimeSlot } = require('../../models');
+const { Category } = require('../../models');
 const { sendSuccess, sendError, sendNotFound } = require('../../utils/responseUtils');
 const { getFileUrl } = require('../../config/multerConfig');
 
@@ -11,14 +11,24 @@ const { getFileUrl } = require('../../config/multerConfig');
  * Transform category data with image URL
  */
 const transformCategory = (category) => {
+    // Parse time_slots if it's a string (from database)
+    let timeSlots = category.time_slots || [];
+    if (typeof timeSlots === 'string') {
+        try {
+            timeSlots = JSON.parse(timeSlots);
+        } catch (e) {
+            timeSlots = [];
+        }
+    }
+
     return {
         id: category.id,
         category_name: category.category_name,
         category_image: getFileUrl(category.category_image),
+        time_slots: timeSlots,
         status: category.status,
         createdAt: category.createdAt,
-        updatedAt: category.updatedAt,
-        timeSlots: category.timeSlots || undefined
+        updatedAt: category.updatedAt
     };
 };
 
@@ -29,25 +39,15 @@ const transformCategory = (category) => {
  */
 const getAllCategories = async (req, res) => {
     try {
-        const { status, include_slots } = req.query;
+        const { status } = req.query;
 
         const whereClause = {};
         if (status !== undefined) {
             whereClause.status = status;
         }
 
-        const includeOptions = [];
-        if (include_slots === 'true') {
-            includeOptions.push({
-                model: TimeSlot,
-                as: 'timeSlots',
-                order: [['slot_date', 'ASC']]
-            });
-        }
-
         const categories = await Category.findAll({
             where: whereClause,
-            include: includeOptions,
             order: [['createdAt', 'DESC']]
         });
 
@@ -73,13 +73,7 @@ const getCategoryById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const category = await Category.findByPk(id, {
-            include: [{
-                model: TimeSlot,
-                as: 'timeSlots',
-                order: [['slot_date', 'ASC']]
-            }]
-        });
+        const category = await Category.findByPk(id);
 
         if (!category) {
             return sendNotFound(res, 'Category');
@@ -104,13 +98,6 @@ const getActiveCategories = async (req, res) => {
     try {
         const categories = await Category.findAll({
             where: { status: 1 },
-            include: [{
-                model: TimeSlot,
-                as: 'timeSlots',
-                where: { status: 1 },
-                required: false,
-                order: [['slot_date', 'ASC']]
-            }],
             order: [['category_name', 'ASC']]
         });
 

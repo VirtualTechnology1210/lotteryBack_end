@@ -1,6 +1,6 @@
 /**
  * Update Category Controller
- * Handles updating categories with image upload
+ * Handles updating categories with image upload and time slots
  */
 
 const path = require('path');
@@ -16,7 +16,7 @@ const { getFileUrl, deleteFile } = require('../../config/multerConfig');
 const updateCategory = async (req, res) => {
     try {
         const { id } = req.params;
-        const { category_name, status } = req.body;
+        const { category_name, time_slots, status } = req.body;
 
         // Find category
         const category = await Category.findByPk(id);
@@ -56,6 +56,22 @@ const updateCategory = async (req, res) => {
         if (category_name) updateData.category_name = category_name.trim();
         if (status !== undefined) updateData.status = status;
 
+        // Handle time_slots update
+        if (time_slots !== undefined) {
+            let parsedTimeSlots = [];
+            if (typeof time_slots === 'string') {
+                try {
+                    parsedTimeSlots = JSON.parse(time_slots);
+                } catch (e) {
+                    // If it's a comma-separated string like "09:00,12:00,18:00"
+                    parsedTimeSlots = time_slots.split(',').map(t => t.trim());
+                }
+            } else if (Array.isArray(time_slots)) {
+                parsedTimeSlots = time_slots;
+            }
+            updateData.time_slots = parsedTimeSlots;
+        }
+
         // Handle image update
         if (req.file) {
             // Delete old image if exists
@@ -69,11 +85,22 @@ const updateCategory = async (req, res) => {
         // Update category
         await category.update(updateData);
 
+        // Parse time_slots for response
+        let timeSlots = category.time_slots || [];
+        if (typeof timeSlots === 'string') {
+            try {
+                timeSlots = JSON.parse(timeSlots);
+            } catch (e) {
+                timeSlots = [];
+            }
+        }
+
         // Prepare response
         const responseData = {
             id: category.id,
             category_name: category.category_name,
             category_image: getFileUrl(category.category_image),
+            time_slots: timeSlots,
             status: category.status,
             createdAt: category.createdAt,
             updatedAt: category.updatedAt

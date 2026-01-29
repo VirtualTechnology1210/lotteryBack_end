@@ -14,13 +14,13 @@ const { sendSuccess, sendError, sendNotFound } = require('../../utils/responseUt
 const getAllUsers = async (req, res) => {
     try {
         const users = await User.findAll({
-            attributes: ['id', 'name', 'email', 'role_id', 'created_at', 'updated_at'],
+            attributes: ['id', 'name', 'email', 'role_id', 'createdAt', 'updatedAt'],
             include: [{
                 model: Role,
                 as: 'role',
                 attributes: ['id', 'role']
             }],
-            order: [['created_at', 'DESC']]
+            order: [['createdAt', 'DESC']]
         });
 
         return sendSuccess(res, 'Users fetched successfully', {
@@ -44,7 +44,7 @@ const getUserById = async (req, res) => {
         const { id } = req.params;
 
         const user = await User.findByPk(id, {
-            attributes: ['id', 'name', 'email', 'role_id', 'created_at', 'updated_at'],
+            attributes: ['id', 'name', 'email', 'role_id', 'createdAt', 'updatedAt'],
             include: [{
                 model: Role,
                 as: 'role',

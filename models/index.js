@@ -30,7 +30,7 @@ db.Role = require('./Role')(sequelize);
 db.Page = require('./Page')(sequelize);
 db.Permission = require('./Permission')(sequelize);
 db.Category = require('./Category')(sequelize);
-db.TimeSlot = require('./TimeSlot')(sequelize);
+db.Sales = require('./Sales')(sequelize);
 
 // Set up associations
 Object.keys(db).forEach(modelName => {

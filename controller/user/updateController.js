@@ -71,7 +71,7 @@ const updateUser = async (req, res) => {
 
         // Fetch updated user with role
         const updatedUser = await User.findByPk(id, {
-            attributes: ['id', 'name', 'email', 'role_id', 'created_at', 'updated_at'],
+            attributes: ['id', 'name', 'email', 'role_id', 'createdAt', 'updatedAt'],
             include: [{
                 model: Role,
                 as: 'role',

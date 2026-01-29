@@ -60,7 +60,6 @@ module.exports = (sequelize) => {
     }, {
         tableName: 'users',
         timestamps: true,
-        underscored: true,
         createdAt: 'createdAt',
         updatedAt: 'updatedAt'
     });
@@ -70,6 +69,12 @@ module.exports = (sequelize) => {
         User.belongsTo(models.Role, {
             foreignKey: 'role_id',
             as: 'role'
+        });
+
+        // User can have many sales (created by this user)
+        User.hasMany(models.Sales, {
+            foreignKey: 'user_id',
+            as: 'sales'
         });
     };
 

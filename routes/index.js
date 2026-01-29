@@ -12,7 +12,7 @@ const userRoutes = require('./user/userRoutes');
 const pageRoutes = require('./page/pageRoutes');
 const permissionRoutes = require('./permission/permissionRoutes');
 const categoryRoutes = require('./category/categoryRoutes');
-const timeSlotRoutes = require('./timeslot/timeSlotRoutes');
+const salesRoutes = require('./sales/salesRoutes');
 
 // API health check
 router.get('/health', (req, res) => {
@@ -29,9 +29,6 @@ router.use('/users', userRoutes);
 router.use('/pages', pageRoutes);
 router.use('/permissions', permissionRoutes);
 router.use('/categories', categoryRoutes);
-router.use('/timeslots', timeSlotRoutes);
+router.use('/sales', salesRoutes);
 
 module.exports = router;
-
-
-

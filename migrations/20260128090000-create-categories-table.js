@@ -18,6 +18,12 @@ module.exports = {
                 type: Sequelize.STRING(500),
                 allowNull: true
             },
+            time_slots: {
+                type: Sequelize.JSON,
+                allowNull: true,
+                defaultValue: [],
+                comment: 'Array of time slots like ["09:00", "12:00", "18:00"]'
+            },
             status: {
                 type: Sequelize.TINYINT(1),
                 allowNull: false,
