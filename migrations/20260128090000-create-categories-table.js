@@ -22,12 +22,11 @@ module.exports = {
                 type: Sequelize.JSON,
                 allowNull: true,
                 defaultValue: [],
-                comment: 'Array of time slots like ["09:00", "12:00", "18:00"]'
             },
             status: {
                 type: Sequelize.TINYINT(1),
                 allowNull: false,
-                defaultValue: 1 // 1 = active, 0 = inactive
+                defaultValue: 1
             },
             createdAt: {
                 allowNull: false,

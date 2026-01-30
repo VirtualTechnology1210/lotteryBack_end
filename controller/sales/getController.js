@@ -3,18 +3,41 @@
  * Handles fetching sales entries
  */
 
-const { Sales, Category, User } = require('../../models');
+const { Sales, Product, Category, User } = require('../../models');
 const { sendSuccess, sendError, sendNotFound } = require('../../utils/responseUtils');
 const { Op } = require('sequelize');
 
 /**
+ * Transform sale data for response
+ */
+const transformSale = (sale) => {
+    return {
+        id: sale.id,
+        product_id: sale.product_id,
+        product_name: sale.product?.product_name || null,
+        product_code: sale.product?.product_code || null,
+        category_id: sale.product?.category?.id || null,
+        category_name: sale.product?.category?.category_name || null,
+        desc: sale.desc,
+        qty: sale.qty,
+        price: parseFloat(sale.price),
+        total: parseFloat(sale.price) * sale.qty,
+        user_id: sale.user_id,
+        created_by: sale.createdBy?.name || null,
+        createdAt: sale.createdAt,
+        updatedAt: sale.updatedAt
+    };
+};
+
+/**
  * Get all sales with filtering and pagination
  * @route GET /api/sales
- * @access Admin or User
+ * @access Admin or User with view permission
  */
 const getAllSales = async (req, res) => {
     try {
         const {
+            product_id,
             category_id,
             user_id,
             search,
@@ -25,10 +48,11 @@ const getAllSales = async (req, res) => {
         } = req.query;
 
         const whereClause = {};
+        const productWhereClause = {};
 
-        // Filter by category
-        if (category_id) {
-            whereClause.category_id = category_id;
+        // Filter by product
+        if (product_id) {
+            whereClause.product_id = product_id;
         }
 
         // Filter by user who created
@@ -36,11 +60,16 @@ const getAllSales = async (req, res) => {
             whereClause.user_id = user_id;
         }
 
-        // Search by name or description
+        // Filter by category (through product)
+        if (category_id) {
+            productWhereClause.category_id = category_id;
+        }
+
+        // Search by product name or code
         if (search) {
-            whereClause[Op.or] = [
-                { name: { [Op.like]: `%${search}%` } },
-                { desc: { [Op.like]: `%${search}%` } }
+            productWhereClause[Op.or] = [
+                { product_name: { [Op.like]: `%${search}%` } },
+                { product_code: { [Op.like]: `%${search}%` } }
             ];
         }
 
@@ -48,7 +77,7 @@ const getAllSales = async (req, res) => {
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
         // Valid sort fields
-        const validSortFields = ['createdAt', 'updatedAt', 'name', 'price', 'qty'];
+        const validSortFields = ['createdAt', 'updatedAt', 'qty', 'price'];
         const sortField = validSortFields.includes(sort_by) ? sort_by : 'createdAt';
         const sortDirection = sort_order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
@@ -56,9 +85,15 @@ const getAllSales = async (req, res) => {
             where: whereClause,
             include: [
                 {
-                    model: Category,
-                    as: 'category',
-                    attributes: ['id', 'category_name']
+                    model: Product,
+                    as: 'product',
+                    attributes: ['id', 'product_name', 'product_code', 'price', 'category_id'],
+                    where: Object.keys(productWhereClause).length > 0 ? productWhereClause : undefined,
+                    include: [{
+                        model: Category,
+                        as: 'category',
+                        attributes: ['id', 'category_name']
+                    }]
                 },
                 {
                     model: User,
@@ -76,7 +111,7 @@ const getAllSales = async (req, res) => {
             total: count,
             page: parseInt(page),
             totalPages: Math.ceil(count / parseInt(limit)),
-            sales
+            sales: sales.map(transformSale)
         });
 
     } catch (error) {
@@ -88,7 +123,7 @@ const getAllSales = async (req, res) => {
 /**
  * Get single sale by ID
  * @route GET /api/sales/:id
- * @access Admin or User
+ * @access Admin or User with view permission
  */
 const getSaleById = async (req, res) => {
     try {
@@ -97,9 +132,14 @@ const getSaleById = async (req, res) => {
         const sale = await Sales.findByPk(id, {
             include: [
                 {
-                    model: Category,
-                    as: 'category',
-                    attributes: ['id', 'category_name']
+                    model: Product,
+                    as: 'product',
+                    attributes: ['id', 'product_name', 'product_code', 'price', 'category_id'],
+                    include: [{
+                        model: Category,
+                        as: 'category',
+                        attributes: ['id', 'category_name']
+                    }]
                 },
                 {
                     model: User,
@@ -114,7 +154,7 @@ const getSaleById = async (req, res) => {
         }
 
         return sendSuccess(res, 'Sale fetched successfully', {
-            sale
+            sale: transformSale(sale)
         });
 
     } catch (error) {
@@ -139,9 +179,14 @@ const getMySales = async (req, res) => {
             where: { user_id },
             include: [
                 {
-                    model: Category,
-                    as: 'category',
-                    attributes: ['id', 'category_name']
+                    model: Product,
+                    as: 'product',
+                    attributes: ['id', 'product_name', 'product_code', 'price', 'category_id'],
+                    include: [{
+                        model: Category,
+                        as: 'category',
+                        attributes: ['id', 'category_name']
+                    }]
                 }
             ],
             order: [['createdAt', 'DESC']],
@@ -154,7 +199,7 @@ const getMySales = async (req, res) => {
             total: count,
             page: parseInt(page),
             totalPages: Math.ceil(count / parseInt(limit)),
-            sales
+            sales: sales.map(transformSale)
         });
 
     } catch (error) {

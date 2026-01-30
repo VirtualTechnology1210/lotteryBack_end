@@ -7,13 +7,12 @@ module.exports = (sequelize) => {
             primaryKey: true,
             autoIncrement: true
         },
-        name: {
-            type: DataTypes.STRING(255),
+        product_id: {
+            type: DataTypes.INTEGER,
             allowNull: false,
-            validate: {
-                notEmpty: {
-                    msg: 'Product name is required'
-                }
+            references: {
+                model: 'products',
+                key: 'id'
             }
         },
         desc: {
@@ -41,14 +40,6 @@ module.exports = (sequelize) => {
                 }
             }
         },
-        category_id: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            references: {
-                model: 'categories',
-                key: 'id'
-            }
-        },
         user_id: {
             type: DataTypes.INTEGER,
             allowNull: false,
@@ -56,7 +47,7 @@ module.exports = (sequelize) => {
                 model: 'users',
                 key: 'id'
             },
-            comment: 'User who created this sale entry (created by admin)'
+            comment: 'User who made this sale'
         }
     }, {
         tableName: 'sales',
@@ -67,13 +58,13 @@ module.exports = (sequelize) => {
 
     // Define associations
     Sales.associate = (models) => {
-        // Belongs to Category
-        Sales.belongsTo(models.Category, {
-            foreignKey: 'category_id',
-            as: 'category'
+        // Belongs to Product
+        Sales.belongsTo(models.Product, {
+            foreignKey: 'product_id',
+            as: 'product'
         });
 
-        // Belongs to User (who created the sale)
+        // Belongs to User (who made the sale)
         Sales.belongsTo(models.User, {
             foreignKey: 'user_id',
             as: 'createdBy'

@@ -3,7 +3,7 @@
  * Handles deleting sales entries
  */
 
-const { Sales } = require('../../models');
+const { Sales, Product } = require('../../models');
 const { sendSuccess, sendError, sendNotFound } = require('../../utils/responseUtils');
 
 /**
@@ -15,22 +15,32 @@ const deleteSale = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Find sale
-        const sale = await Sales.findByPk(id);
+        // Find sale with product info
+        const sale = await Sales.findByPk(id, {
+            include: [{
+                model: Product,
+                as: 'product',
+                attributes: ['id', 'product_name', 'product_code']
+            }]
+        });
 
         if (!sale) {
             return sendNotFound(res, 'Sale');
         }
 
         // Check ownership (only admin or the creator can delete)
-        if (req.user.role_id !== 1 && sale.user_id !== req.user.id) {
+        if (req.user.role !== 'admin' && sale.user_id !== req.user.id) {
             return sendError(res, 'You are not authorized to delete this sale', 403);
         }
 
         // Store info for response
         const deletedSaleInfo = {
             id: sale.id,
-            name: sale.name
+            product_name: sale.product?.product_name,
+            product_code: sale.product?.product_code,
+            qty: sale.qty,
+            price: parseFloat(sale.price),
+            total: parseFloat(sale.price) * sale.qty
         };
 
         // Delete sale

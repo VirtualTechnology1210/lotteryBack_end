@@ -3,34 +3,36 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
     async up(queryInterface, Sequelize) {
-        await queryInterface.createTable('sales', {
+        await queryInterface.createTable('products', {
             id: {
-                type: Sequelize.INTEGER,
+                allowNull: false,
+                autoIncrement: true,
                 primaryKey: true,
-                autoIncrement: true
+                type: Sequelize.INTEGER
             },
-            product_id: {
+            category_id: {
                 type: Sequelize.INTEGER,
                 allowNull: false,
                 references: {
-                    model: 'products',
+                    model: 'categories',
                     key: 'id'
                 },
                 onUpdate: 'CASCADE',
-                onDelete: 'RESTRICT',
+                onDelete: 'RESTRICT'
             },
-            desc: {
-                type: Sequelize.TEXT,
-                allowNull: true,
+            product_name: {
+                type: Sequelize.STRING(255),
+                allowNull: false
             },
-            qty: {
-                type: Sequelize.INTEGER,
+            product_code: {
+                type: Sequelize.STRING(100),
                 allowNull: false,
-                defaultValue: 1,
+                unique: true,
             },
             price: {
                 type: Sequelize.DECIMAL(10, 2),
                 allowNull: false,
+                defaultValue: 0.00
             },
             user_id: {
                 type: Sequelize.INTEGER,
@@ -40,33 +42,38 @@ module.exports = {
                     key: 'id'
                 },
                 onUpdate: 'CASCADE',
-                onDelete: 'RESTRICT',
+                onDelete: 'RESTRICT'
+            },
+            status: {
+                type: Sequelize.TINYINT(1),
+                allowNull: false,
+                defaultValue: 1
             },
             createdAt: {
-                type: Sequelize.DATE,
                 allowNull: false,
+                type: Sequelize.DATE,
                 defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
             },
             updatedAt: {
-                type: Sequelize.DATE,
                 allowNull: false,
+                type: Sequelize.DATE,
                 defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP')
             }
         });
 
-        // Add indexes for faster lookups
-        await queryInterface.addIndex('sales', ['product_id'], {
-            name: 'idx_sales_product_id'
+        // Add index on product_code for faster lookups
+        await queryInterface.addIndex('products', ['product_code'], {
+            unique: true,
+            name: 'idx_products_product_code'
         });
-        await queryInterface.addIndex('sales', ['user_id'], {
-            name: 'idx_sales_user_id'
-        });
-        await queryInterface.addIndex('sales', ['createdAt'], {
-            name: 'idx_sales_created_at'
+
+        // Add index on category_id for faster category-based queries
+        await queryInterface.addIndex('products', ['category_id'], {
+            name: 'idx_products_category_id'
         });
     },
 
     async down(queryInterface, Sequelize) {
-        await queryInterface.dropTable('sales');
+        await queryInterface.dropTable('products');
     }
 };

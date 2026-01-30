@@ -39,10 +39,10 @@ module.exports = (sequelize) => {
 
     // Define association
     Category.associate = (models) => {
-        // Category can have many sales
-        Category.hasMany(models.Sales, {
+        // Category can have many products
+        Category.hasMany(models.Product, {
             foreignKey: 'category_id',
-            as: 'sales'
+            as: 'products'
         });
     };
 

@@ -30,6 +30,7 @@ db.Role = require('./Role')(sequelize);
 db.Page = require('./Page')(sequelize);
 db.Permission = require('./Permission')(sequelize);
 db.Category = require('./Category')(sequelize);
+db.Product = require('./Product')(sequelize);
 db.Sales = require('./Sales')(sequelize);
 
 // Set up associations

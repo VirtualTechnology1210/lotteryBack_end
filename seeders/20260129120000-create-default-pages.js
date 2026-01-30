@@ -7,6 +7,7 @@ module.exports = {
             'Users',
             'Permissions',
             'Categories',
+            'Products',
             'Sales',
             'Reports'
         ];

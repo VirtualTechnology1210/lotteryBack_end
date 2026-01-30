@@ -12,6 +12,7 @@ const userRoutes = require('./user/userRoutes');
 const pageRoutes = require('./page/pageRoutes');
 const permissionRoutes = require('./permission/permissionRoutes');
 const categoryRoutes = require('./category/categoryRoutes');
+const productRoutes = require('./product/productRoutes');
 const salesRoutes = require('./sales/salesRoutes');
 
 // API health check
@@ -29,6 +30,7 @@ router.use('/users', userRoutes);
 router.use('/pages', pageRoutes);
 router.use('/permissions', permissionRoutes);
 router.use('/categories', categoryRoutes);
+router.use('/products', productRoutes);
 router.use('/sales', salesRoutes);
 
 module.exports = router;
