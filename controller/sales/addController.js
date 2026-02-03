@@ -52,19 +52,17 @@ const addSale = async (req, res) => {
             return sendError(res, 'Cannot sell an inactive product', 400);
         }
 
-        // Use provided price or default to product price
-        const salePrice = price !== undefined && price !== null ? parseFloat(price) : parseFloat(product.price);
+        // Calculate total price (qty × product unit price)
+        const quantity = parseInt(qty);
+        const unitPrice = parseFloat(product.price);
+        const totalPrice = unitPrice * quantity;
 
-        if (isNaN(salePrice) || salePrice < 0) {
-            return sendValidationError(res, [{ field: 'price', message: 'Price must be a valid positive number' }]);
-        }
-
-        // Create sale entry
+        // Create sale entry with total price
         const sale = await Sales.create({
             product_id,
             desc: desc ? desc.trim() : null,
-            qty: parseInt(qty),
-            price: salePrice,
+            qty: quantity,
+            price: totalPrice,  // Store total price (qty × unit_price)
             user_id
         });
 
@@ -99,8 +97,8 @@ const addSale = async (req, res) => {
             category_name: createdSale.product?.category?.category_name,
             desc: createdSale.desc,
             qty: createdSale.qty,
-            price: parseFloat(createdSale.price),
-            total: parseFloat(createdSale.price) * createdSale.qty,
+            unit_price: parseFloat(createdSale.product?.price || 0),
+            total: parseFloat(createdSale.price),  // price column now stores total
             user_id: createdSale.user_id,
             created_by: createdSale.createdBy?.name,
             createdAt: createdSale.createdAt,

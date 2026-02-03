@@ -98,7 +98,7 @@ const getActiveCategories = async (req, res) => {
     try {
         const categories = await Category.findAll({
             where: { status: 1 },
-            order: [['category_name', 'ASC']]
+            order: [['createdAt', 'ASC']] // Order by creation time, newest first
         });
 
         const transformedCategories = categories.map(transformCategory);

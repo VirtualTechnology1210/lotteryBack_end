@@ -9,6 +9,7 @@ const router = express.Router();
 // Import route modules
 const authRoutes = require('./auth/authRoutes');
 const userRoutes = require('./user/userRoutes');
+const roleRoutes = require('./role/roleRoutes');
 const pageRoutes = require('./page/pageRoutes');
 const permissionRoutes = require('./permission/permissionRoutes');
 const categoryRoutes = require('./category/categoryRoutes');
@@ -27,6 +28,7 @@ router.get('/health', (req, res) => {
 // Mount route modules
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
+router.use('/roles', roleRoutes);
 router.use('/pages', pageRoutes);
 router.use('/permissions', permissionRoutes);
 router.use('/categories', categoryRoutes);

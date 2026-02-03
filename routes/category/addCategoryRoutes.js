@@ -7,14 +7,14 @@ const router = express.Router();
 
 const { addCategory } = require('../../controller/category/addController');
 const { authenticate } = require('../../middleware/authMiddleware');
-const { requireAdmin } = require('../../middleware/rbacMiddleware');
+const { canAdd } = require('../../middleware/permissionMiddleware');
 const { uploadCategory, handleMulterError } = require('../../config/multerConfig');
 
 /**
  * @route   POST /api/categories
  * @desc    Create a new category with image upload
- * @access  Admin only
+ * @access  Users with add permission
  */
-router.post('/', authenticate, requireAdmin, uploadCategory.single('category_image'), handleMulterError, addCategory);
+router.post('/', authenticate, canAdd('Categories'), uploadCategory.single('category_image'), handleMulterError, addCategory);
 
 module.exports = router;

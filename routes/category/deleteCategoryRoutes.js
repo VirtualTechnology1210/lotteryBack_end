@@ -7,13 +7,13 @@ const router = express.Router();
 
 const { deleteCategory } = require('../../controller/category/deleteController');
 const { authenticate } = require('../../middleware/authMiddleware');
-const { requireAdmin } = require('../../middleware/rbacMiddleware');
+const { canDelete } = require('../../middleware/permissionMiddleware');
 
 /**
  * @route   DELETE /api/categories/:id
  * @desc    Delete category by ID
- * @access  Admin only
+ * @access  Users with delete permission
  */
-router.delete('/:id', authenticate, requireAdmin, deleteCategory);
+router.delete('/:id', authenticate, canDelete('Categories'), deleteCategory);
 
 module.exports = router;

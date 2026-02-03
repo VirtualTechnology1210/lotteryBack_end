@@ -12,9 +12,9 @@ const { requireAdmin } = require('../../middleware/rbacMiddleware');
 /**
  * @route   GET /api/pages
  * @desc    Get all pages
- * @access  Admin only
+ * @access  Authenticated users
  */
-router.get('/', authenticate, requireAdmin, getAllPages);
+router.get('/', authenticate, getAllPages);
 
 /**
  * @route   GET /api/pages/:id

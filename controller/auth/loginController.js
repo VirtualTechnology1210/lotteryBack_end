@@ -4,7 +4,7 @@
  */
 
 const bcrypt = require('bcryptjs');
-const { User } = require('../../models');
+const { User, Role } = require('../../models');
 const { generateToken } = require('../../utils/jwtUtils');
 const { sendSuccess, sendError, sendValidationError } = require('../../utils/responseUtils');
 
@@ -29,9 +29,14 @@ const login = async (req, res) => {
             return sendValidationError(res, errors);
         }
 
-        // Find user by email
+        // Find user by email with role
         const user = await User.findOne({
-            where: { email: email.toLowerCase().trim() }
+            where: { email: email.toLowerCase().trim() },
+            include: [{
+                model: Role,
+                as: 'role',
+                attributes: ['id', 'role']
+            }]
         });
 
         if (!user) {
@@ -48,13 +53,15 @@ const login = async (req, res) => {
         // Generate JWT token
         const token = generateToken(user);
 
-        // Return success response with token and user info
+        // Return success response with token and user info (including role)
         return sendSuccess(res, 'Login successful', {
             token,
             user: {
                 id: user.id,
                 name: user.name,
-                email: user.email
+                email: user.email,
+                role_id: user.role_id,
+                role: user.role?.role || null  // 'admin' or 'user'
             }
         });
 

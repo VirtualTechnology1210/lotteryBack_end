@@ -7,27 +7,27 @@ const router = express.Router();
 
 const { getAllCategories, getCategoryById, getActiveCategories } = require('../../controller/category/getController');
 const { authenticate } = require('../../middleware/authMiddleware');
-const { requireAdmin } = require('../../middleware/rbacMiddleware');
+const { canView } = require('../../middleware/permissionMiddleware');
 
 /**
  * @route   GET /api/categories/active
  * @desc    Get active categories for mobile app
- * @access  Authenticated users
+ * @access  Authenticated users with view permission
  */
-router.get('/active', authenticate, getActiveCategories);
+router.get('/active', authenticate, canView('Categories'), getActiveCategories);
 
 /**
  * @route   GET /api/categories
  * @desc    Get all categories
- * @access  Admin only
+ * @access  Users with view permission
  */
-router.get('/', authenticate, requireAdmin, getAllCategories);
+router.get('/', authenticate, canView('Categories'), getAllCategories);
 
 /**
  * @route   GET /api/categories/:id
  * @desc    Get category by ID
- * @access  Admin only
+ * @access  Users with view permission
  */
-router.get('/:id', authenticate, requireAdmin, getCategoryById);
+router.get('/:id', authenticate, canView('Categories'), getCategoryById);
 
 module.exports = router;

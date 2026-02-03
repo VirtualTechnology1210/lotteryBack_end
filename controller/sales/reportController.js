@@ -11,6 +11,7 @@ const { Op } = require('sequelize');
  * Get sales report with date and time filtering
  * @route GET /api/sales/report
  * @access Authenticated users
+ * NOTE: Non-admin users only see their own data
  */
 const getSalesReport = async (req, res) => {
     try {
@@ -28,6 +29,16 @@ const getSalesReport = async (req, res) => {
 
         const whereClause = {};
         const productWhereClause = {};
+
+        // DATA ISOLATION: Non-admin users can only see their own data
+        const isAdmin = req.user.role === 'admin';
+        if (!isAdmin) {
+            // Force filter to current user's data only
+            whereClause.user_id = req.user.id;
+        } else if (user_id) {
+            // Admin can filter by specific user if requested
+            whereClause.user_id = user_id;
+        }
 
         // Date and Time filtering
         if (start_date || end_date) {
@@ -56,11 +67,6 @@ const getSalesReport = async (req, res) => {
         // Filter by category (through product)
         if (category_id) {
             productWhereClause.category_id = category_id;
-        }
-
-        // Filter by user who made the sale
-        if (user_id) {
-            whereClause.user_id = user_id;
         }
 
         // Pagination
@@ -110,7 +116,7 @@ const getSalesReport = async (req, res) => {
             attributes: [
                 [Sales.sequelize.fn('COUNT', Sales.sequelize.col('id')), 'total_records'],
                 [Sales.sequelize.fn('SUM', Sales.sequelize.col('qty')), 'total_quantity'],
-                [Sales.sequelize.fn('SUM', Sales.sequelize.literal('qty * price')), 'total_amount']
+                [Sales.sequelize.fn('SUM', Sales.sequelize.col('price')), 'total_amount']  // price is now total
             ],
             raw: true
         });
@@ -125,8 +131,8 @@ const getSalesReport = async (req, res) => {
             category_name: sale.product?.category?.category_name || null,
             desc: sale.desc,
             qty: sale.qty,
-            price: parseFloat(sale.price),
-            total: parseFloat(sale.price) * sale.qty,
+            unit_price: parseFloat(sale.product?.price || 0),
+            total: parseFloat(sale.price),  // price column stores total
             created_by: sale.createdBy?.name || null,
             user_id: sale.user_id,
             created_at: sale.createdAt,
@@ -199,7 +205,7 @@ const getSalesReportByCategory = async (req, res) => {
                 c.category_name,
                 COUNT(s.id) as total_sales,
                 SUM(s.qty) as total_quantity,
-                SUM(s.qty * s.price) as total_amount
+                SUM(s.price) as total_amount
             FROM sales s
             INNER JOIN products p ON s.product_id = p.id
             INNER JOIN categories c ON p.category_id = c.id
@@ -286,7 +292,7 @@ const getSalesReportByProduct = async (req, res) => {
                 c.category_name,
                 COUNT(s.id) as total_sales,
                 SUM(s.qty) as total_quantity,
-                SUM(s.qty * s.price) as total_amount
+                SUM(s.price) as total_amount
             FROM sales s
             INNER JOIN products p ON s.product_id = p.id
             INNER JOIN categories c ON p.category_id = c.id
@@ -370,7 +376,7 @@ const getSalesReportByUser = async (req, res) => {
                 u.email as user_email,
                 COUNT(s.id) as total_sales,
                 SUM(s.qty) as total_quantity,
-                SUM(s.qty * s.price) as total_amount
+                SUM(s.price) as total_amount
             FROM sales s
             INNER JOIN users u ON s.user_id = u.id
             WHERE 1=1 ${dateFilter}

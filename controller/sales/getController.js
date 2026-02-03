@@ -33,6 +33,7 @@ const transformSale = (sale) => {
  * Get all sales with filtering and pagination
  * @route GET /api/sales
  * @access Admin or User with view permission
+ * NOTE: Non-admin users only see their own data
  */
 const getAllSales = async (req, res) => {
     try {
@@ -50,14 +51,19 @@ const getAllSales = async (req, res) => {
         const whereClause = {};
         const productWhereClause = {};
 
+        // DATA ISOLATION: Non-admin users can only see their own data
+        const isAdmin = req.user.role === 'admin';
+        if (!isAdmin) {
+            // Force filter to current user's data only
+            whereClause.user_id = req.user.id;
+        } else if (user_id) {
+            // Admin can filter by specific user if requested
+            whereClause.user_id = user_id;
+        }
+
         // Filter by product
         if (product_id) {
             whereClause.product_id = product_id;
-        }
-
-        // Filter by user who created
-        if (user_id) {
-            whereClause.user_id = user_id;
         }
 
         // Filter by category (through product)
