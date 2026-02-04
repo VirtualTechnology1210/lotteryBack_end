@@ -7,14 +7,15 @@ module.exports = {
         const adminRoleId = 1;
 
         // Define default permissions for Admin (Full Access to everything)
-        // Pages: Users(1), Permissions(2), Categories(3), Products(4), Sales(5), Reports(6)
+        // Pages: Dashboard(1), Categories(2), Products(3), Sales(4), Reports(5), Users(6), Roles & Permissions(7)
         const pages = [
-            { id: 1, name: 'Users' },
-            { id: 2, name: 'Permissions' },
-            { id: 3, name: 'Categories' },
-            { id: 4, name: 'Products' },
-            { id: 5, name: 'Sales' },
-            { id: 6, name: 'Reports' }
+            { id: 1, name: 'Dashboard' },
+            { id: 2, name: 'Categories' },
+            { id: 3, name: 'Products' },
+            { id: 4, name: 'Sales' },
+            { id: 5, name: 'Reports' },
+            { id: 6, name: 'Users' },
+            { id: 7, name: 'Roles & Permissions' }
         ];
 
         const permissions = pages.map(page => ({

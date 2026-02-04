@@ -4,12 +4,13 @@
 module.exports = {
     async up(queryInterface, Sequelize) {
         const pages = [
-            'Users',
-            'Permissions',
+            'Dashboard',
             'Categories',
             'Products',
             'Sales',
-            'Reports'
+            'Reports',
+            'Users',
+            'Roles & Permissions'
         ];
 
         // Format data for bulk insert with timestamps

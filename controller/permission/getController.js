@@ -88,9 +88,11 @@ const getMyPermissions = async (req, res) => {
         });
 
         // Transform to a simpler format for mobile app
+        // Normalize page names to lowercase for consistent frontend matching
         const permissionMap = {};
         permissions.forEach(perm => {
-            permissionMap[perm.page.page] = {
+            const pageName = perm.page.page.toLowerCase();
+            permissionMap[pageName] = {
                 view: perm.view === 1,
                 add: perm.add === 1,
                 edit: perm.edit === 1,
