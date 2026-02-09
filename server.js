@@ -1,13 +1,13 @@
 const express = require("express");
-const app = express();
 const path = require("path");
-const envFile = `.env.${process.env.NODE_ENV || 'development'}`;
 
+// Load environment variables FIRST - before any other imports
+const envFile = `.env.${process.env.NODE_ENV || 'development'}`;
+require("dotenv").config({ path: path.resolve(__dirname, envFile) });
+
+const app = express();
 const cors = require("cors");
 const { sequelize } = require("./models/index.js");
-
-// Load environment variables
-require("dotenv").config({ path: path.resolve(__dirname, "", envFile), quiet: true });
 
 // Import routes
 const routes = require("./routes");

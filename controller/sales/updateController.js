@@ -101,6 +101,7 @@ const updateSale = async (req, res) => {
         // Transform response
         const responseData = {
             id: updatedSale.id,
+            invoice_number: updatedSale.invoice_number,
             product_id: updatedSale.product_id,
             product_name: updatedSale.product?.product_name,
             product_code: updatedSale.product?.product_code,

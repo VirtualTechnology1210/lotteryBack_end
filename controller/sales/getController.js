@@ -13,6 +13,7 @@ const { Op } = require('sequelize');
 const transformSale = (sale) => {
     return {
         id: sale.id,
+        invoice_number: sale.invoice_number || null,
         product_id: sale.product_id,
         product_name: sale.product?.product_name || null,
         product_code: sale.product?.product_code || null,

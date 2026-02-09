@@ -1,5 +1,5 @@
 const path = require("path");
-const envFile = `.env.${process.env.NODE_ENV}`;
+const envFile = `.env.${process.env.NODE_ENV || "development"}`;
 
 require("dotenv").config({ path: path.resolve(__dirname, "..", envFile), quiet: true });
 

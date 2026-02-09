@@ -7,6 +7,10 @@ module.exports = (sequelize) => {
             primaryKey: true,
             autoIncrement: true
         },
+        invoice_number: {
+            type: DataTypes.STRING(100),
+            allowNull: true
+        },
         product_id: {
             type: DataTypes.INTEGER,
             allowNull: false,

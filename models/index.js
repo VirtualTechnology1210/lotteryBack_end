@@ -1,10 +1,20 @@
 const { Sequelize } = require("sequelize");
 const path = require("path");
-const envFile = `.env.${process.env.NODE_ENV || "development"}`;
 
-require("dotenv").config({ path: path.resolve(__dirname, "..", envFile), quiet: true });
+// Determine environment
+const env = process.env.NODE_ENV || "development";
+const envFile = `.env.${env}`;
 
-const config = require("../config/config.js")[process.env.NODE_ENV || "development"];
+// Load environment variables first
+require("dotenv").config({ path: path.resolve(__dirname, "..", envFile) });
+
+// Then load config
+const allConfig = require("../config/config.js");
+const config = allConfig[env] || allConfig.development;
+
+if (!config) {
+    throw new Error(`No config found for environment: ${env}`);
+}
 
 const sequelize = new Sequelize(
     config.database,
@@ -32,6 +42,7 @@ db.Permission = require('./Permission')(sequelize);
 db.Category = require('./Category')(sequelize);
 db.Product = require('./Product')(sequelize);
 db.Sales = require('./Sales')(sequelize);
+db.InvoiceSeries = require('./InvoiceSeries')(sequelize);
 
 // Set up associations
 Object.keys(db).forEach(modelName => {

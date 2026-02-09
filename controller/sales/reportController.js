@@ -114,7 +114,7 @@ const getSalesReport = async (req, res) => {
         const summary = await Sales.findOne({
             where: summaryWhereClause,
             attributes: [
-                [Sales.sequelize.fn('COUNT', Sales.sequelize.col('id')), 'total_records'],
+                [Sales.sequelize.literal('COUNT(DISTINCT CASE WHEN invoice_number IS NOT NULL THEN invoice_number ELSE id END)'), 'total_records'],
                 [Sales.sequelize.fn('SUM', Sales.sequelize.col('qty')), 'total_quantity'],
                 [Sales.sequelize.fn('SUM', Sales.sequelize.col('price')), 'total_amount']  // price is now total
             ],
@@ -124,6 +124,7 @@ const getSalesReport = async (req, res) => {
         // Transform sales data for report
         const reportData = sales.map(sale => ({
             id: sale.id,
+            invoice_number: sale.invoice_number || null,
             product_id: sale.product_id,
             product_name: sale.product?.product_name || null,
             product_code: sale.product?.product_code || null,
@@ -203,7 +204,7 @@ const getSalesReportByCategory = async (req, res) => {
             SELECT 
                 c.id as category_id,
                 c.category_name,
-                COUNT(s.id) as total_sales,
+                COUNT(DISTINCT CASE WHEN s.invoice_number IS NOT NULL THEN s.invoice_number ELSE s.id END) as total_sales,
                 SUM(s.qty) as total_quantity,
                 SUM(s.price) as total_amount
             FROM sales s
@@ -290,7 +291,7 @@ const getSalesReportByProduct = async (req, res) => {
                 p.product_code,
                 c.id as category_id,
                 c.category_name,
-                COUNT(s.id) as total_sales,
+                COUNT(DISTINCT CASE WHEN s.invoice_number IS NOT NULL THEN s.invoice_number ELSE s.id END) as total_sales,
                 SUM(s.qty) as total_quantity,
                 SUM(s.price) as total_amount
             FROM sales s
@@ -374,7 +375,7 @@ const getSalesReportByUser = async (req, res) => {
                 u.id as user_id,
                 u.name as user_name,
                 u.email as user_email,
-                COUNT(s.id) as total_sales,
+                COUNT(DISTINCT CASE WHEN s.invoice_number IS NOT NULL THEN s.invoice_number ELSE s.id END) as total_sales,
                 SUM(s.qty) as total_quantity,
                 SUM(s.price) as total_amount
             FROM sales s

@@ -17,11 +17,10 @@ const generateToken = (user) => {
         name: user.name
     };
 
-    return jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
-    );
+    const secret = process.env.JWT_SECRET || 'lottery-default-secret-key-2024';
+    const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
+
+    return jwt.sign(payload, secret, { expiresIn });
 };
 
 /**
@@ -31,7 +30,8 @@ const generateToken = (user) => {
  */
 const verifyToken = (token) => {
     try {
-        return jwt.verify(token, process.env.JWT_SECRET);
+        const secret = process.env.JWT_SECRET || 'lottery-default-secret-key-2024';
+        return jwt.verify(token, secret);
     } catch (error) {
         return null;
     }
