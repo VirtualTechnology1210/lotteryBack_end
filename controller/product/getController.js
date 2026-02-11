@@ -19,6 +19,7 @@ const transformProduct = (product) => {
         product_code: product.product_code,
         price: parseFloat(product.price),
         status: product.status,
+        box: product.box,
         user_id: product.user_id,
         created_by: product.createdBy?.name || null,
         createdAt: product.createdAt,

@@ -9,6 +9,10 @@ const commonConfig = {
   database: process.env.DB_NAME || "lottery",
   host: process.env.DB_HOST || "localhost",
   dialect: process.env.DB_DIALECT || "mysql",
+  timezone: "+05:30", // IST - ensures Sequelize writes/reads dates in IST
+  dialectOptions: {
+    timezone: "+05:30", // Tells MySQL driver to use IST
+  },
   pool: {
     max: 5,           // Reduced from 10 to prevent overwhelming the DB
     min: 0,           // Reduced from 2 to allow all connections to be released

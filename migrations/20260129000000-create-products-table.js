@@ -49,6 +49,11 @@ module.exports = {
                 allowNull: false,
                 defaultValue: 1
             },
+            box: {
+                type: Sequelize.TINYINT(1),
+                allowNull: false,
+                defaultValue: 0,
+            },
             createdAt: {
                 allowNull: false,
                 type: Sequelize.DATE,

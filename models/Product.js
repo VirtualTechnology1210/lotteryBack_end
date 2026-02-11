@@ -18,34 +18,15 @@ module.exports = (sequelize) => {
         product_name: {
             type: DataTypes.STRING(255),
             allowNull: false,
-            validate: {
-                notEmpty: {
-                    msg: 'Product name is required'
-                }
-            }
         },
         product_code: {
             type: DataTypes.STRING(100),
             allowNull: false,
-            unique: {
-                msg: 'Product code already exists'
-            },
-            validate: {
-                notEmpty: {
-                    msg: 'Product code is required'
-                }
-            }
         },
         price: {
             type: DataTypes.DECIMAL(10, 2),
             allowNull: false,
             defaultValue: 0.00,
-            validate: {
-                min: {
-                    args: [0],
-                    msg: 'Price must be a positive value'
-                }
-            }
         },
         user_id: {
             type: DataTypes.INTEGER,
@@ -54,12 +35,16 @@ module.exports = (sequelize) => {
                 model: 'users',
                 key: 'id'
             },
-            comment: 'User who created this product (admin or authorized user)'
         },
         status: {
             type: DataTypes.TINYINT,
             allowNull: false,
             defaultValue: 1
+        },
+        box: {
+            type: DataTypes.TINYINT,
+            allowNull: false,
+            defaultValue: 0,
         }
     }, {
         tableName: 'products',

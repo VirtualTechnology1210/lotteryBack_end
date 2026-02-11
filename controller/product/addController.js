@@ -20,7 +20,7 @@ const { sendSuccess, sendError, sendValidationError } = require('../../utils/res
  */
 const addProduct = async (req, res) => {
     try {
-        const { category_id, product_name, product_code, price, status } = req.body;
+        const { category_id, product_name, product_code, price, status, box } = req.body;
         const user_id = req.user.id; // Get the logged-in user's ID
 
         // Validate required fields
@@ -70,7 +70,8 @@ const addProduct = async (req, res) => {
             product_code: product_code.trim().toUpperCase(), // Store in uppercase for consistency
             price: parseFloat(price),
             user_id,
-            status: status !== undefined ? status : 1
+            status: status !== undefined ? status : 1,
+            box: box !== undefined ? box : 0
         });
 
         // Fetch the product with associations for response
@@ -93,6 +94,7 @@ const addProduct = async (req, res) => {
                 product_code: productWithDetails.product_code,
                 price: productWithDetails.price,
                 status: productWithDetails.status,
+                box: productWithDetails.box,
                 user_id: productWithDetails.user_id,
                 createdAt: productWithDetails.createdAt,
                 updatedAt: productWithDetails.updatedAt

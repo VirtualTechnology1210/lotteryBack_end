@@ -16,6 +16,7 @@ const categoryRoutes = require('./category/categoryRoutes');
 const productRoutes = require('./product/productRoutes');
 const salesRoutes = require('./sales/salesRoutes');
 const invoiceSeriesRoutes = require('./invoiceSeries/invoiceSeriesRoutes');
+const winningRoutes = require('./winning/winningRoutes');
 
 // API health check
 router.get('/health', (req, res) => {
@@ -36,5 +37,6 @@ router.use('/categories', categoryRoutes);
 router.use('/products', productRoutes);
 router.use('/sales', salesRoutes);
 router.use('/invoice-series', invoiceSeriesRoutes);
+router.use('/winning', winningRoutes);
 
 module.exports = router;
