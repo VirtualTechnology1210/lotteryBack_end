@@ -65,7 +65,7 @@ module.exports = (sequelize) => {
         Product.belongsTo(models.User, {
             foreignKey: 'user_id',
             as: 'createdBy'
-        });
+        }); 
 
         // Has many Sales
         Product.hasMany(models.Sales, {

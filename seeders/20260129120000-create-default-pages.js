@@ -10,7 +10,8 @@ module.exports = {
             'Sales',
             'Reports',
             'Users',
-            'Roles & Permissions'
+            'Roles & Permissions',
+            'Winning'
         ];
 
         // Format data for bulk insert with timestamps

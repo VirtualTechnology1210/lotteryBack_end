@@ -58,14 +58,14 @@ const parseTimeSlot = (timeSlot) => {
 };
 
 /**
- * Calculate the 24-hour rolling time window based on a time slot.
+ * Calculate the 24-hour time window based on a time slot.
  * 
- * The window is always exactly 24 hours and ends at the most recent
- * occurrence of the time slot that is NOT in the future.
+ * The window is always:
+ *   - Start: yesterday at [time_slot] (inclusive, >=)
+ *   - End:   today at [time_slot]     (exclusive, <)
  * 
- * Example (time slot = 3:00 PM):
- *   Current time 4:19 PM on Feb 11 → window: Feb 10 3PM → Feb 11 3PM
- *   Current time 1:00 PM on Feb 11 → window: Feb 9 3PM  → Feb 10 3PM
+ * Example (time slot = 4:30 PM, today = Feb 12, 2026):
+ *   Window: Feb 11, 2026 4:30 PM (>=) to Feb 12, 2026 4:30 PM (<)
  */
 const calculateTimeWindow = (timeSlotStr) => {
     const parsed = parseTimeSlot(timeSlotStr);
@@ -73,25 +73,16 @@ const calculateTimeWindow = (timeSlotStr) => {
 
     const now = new Date();
 
-    // Build today's cutoff at the time slot
-    const todayCutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parsed.hours, parsed.minutes, 0, 0);
+    // End = today at [time_slot]
+    const windowEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parsed.hours, parsed.minutes, 0, 0);
 
-    let windowEnd;
-    if (now >= todayCutoff) {
-        // Current time is at or past today's time slot → use today's cutoff as end
-        windowEnd = todayCutoff;
-    } else {
-        // Current time is before today's time slot → use yesterday's cutoff as end
-        windowEnd = new Date(todayCutoff);
-        windowEnd.setDate(windowEnd.getDate() - 1);
-    }
-
-    // Start is exactly 24 hours before the end
+    // Start = yesterday at [time_slot] (exactly 24 hours before end)
     const windowStart = new Date(windowEnd);
     windowStart.setDate(windowStart.getDate() - 1);
 
-    console.log(`[Winning] Time slot: ${timeSlotStr}, Now: ${now.toISOString()}`);
-    console.log(`[Winning] Window: ${windowStart.toISOString()} → ${windowEnd.toISOString()}`);
+    console.log(`[Winning] Time slot: ${timeSlotStr}, Now: ${now.toLocaleString()}`);
+    console.log(`[Winning] Window Start: ${windowStart.toLocaleString()}`);
+    console.log(`[Winning] Window End:   ${windowEnd.toLocaleString()} (exclusive)`);
 
     return {
         start: windowStart,
@@ -185,11 +176,15 @@ const checkWinning = async (req, res) => {
         // ── Query ALL sales in the time window for this category ────
         // We fetch all sales (not pre-filtered by desc) because we need
         // to check each individual lottery number in desc against suffix patterns
+        // Fetch sales where:
+        //   createdAt >= windowStart (inclusive)
+        //   createdAt <  windowEnd  (exclusive — sales exactly at end boundary are excluded)
+        //   product belongs to the selected category
         const sales = await Sales.findAll({
             where: {
                 createdAt: {
                     [Op.gte]: window.start,
-                    [Op.lte]: window.end
+                    [Op.lt]: window.end
                 }
             },
             include: [
@@ -256,6 +251,18 @@ const checkWinning = async (req, res) => {
         const totalWinners = round3Matches.length + round2Matches.length + round1Matches.length;
         const isWinner = totalWinners > 0;
 
+        // ── Format window dates for frontend display ────────────────
+        const formatForDisplay = (date) => {
+            return date.toLocaleString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        };
+
         // ── Build Response ──────────────────────────────────────────
         return sendSuccess(res, isWinner ? 'Winning numbers found!' : 'No matching sales found', {
             is_winner: isWinner,
@@ -264,7 +271,9 @@ const checkWinning = async (req, res) => {
             time_slot: timeSlotStr,
             window: {
                 start: window.start.toISOString(),
-                end: window.end.toISOString()
+                end: window.end.toISOString(),
+                start_display: formatForDisplay(window.start),
+                end_display: formatForDisplay(window.end)
             },
             total_sales_checked: sales.length,
             summary: {
