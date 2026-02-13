@@ -4,7 +4,8 @@
  * Uses time-slot-based 24-hour rolling window filtering
  * 
  * MATCHING LOGIC (Right-to-left suffix, highest round priority):
- *   Round 3: Exact match with entered number (highest priority)
+ *   Round 4: Exact match with entered number (highest priority)
+ *   Round 3: Last 3 digits match
  *   Round 2: Last 2 digits match
  *   Round 1: Last 1 digit match
  * 
@@ -171,6 +172,7 @@ const checkWinning = async (req, res) => {
         // ── Extract suffix patterns for matching ────────────────────
         const suffix1 = trimmedNumber.slice(-1);                           // Last 1 digit
         const suffix2 = trimmedNumber.length >= 2 ? trimmedNumber.slice(-2) : null; // Last 2 digits
+        const suffix3 = trimmedNumber.length >= 3 ? trimmedNumber.slice(-3) : null; // Last 3 digits
         const fullNumber = trimmedNumber;                                  // Exact match
 
         // ── Query ALL sales in the time window for this category ────
@@ -212,7 +214,8 @@ const checkWinning = async (req, res) => {
         });
 
         // ── Round-based matching (highest round priority) ───────────
-        const round3Matches = []; // Exact match (highest priority)
+        const round4Matches = []; // Exact match (highest priority)
+        const round3Matches = []; // Last 3 digits match
         const round2Matches = []; // Last 2 digits match
         const round1Matches = []; // Last 1 digit match
 
@@ -229,7 +232,9 @@ const checkWinning = async (req, res) => {
                 let matchedRound = null;
 
                 if (num === fullNumber) {
-                    matchedRound = 3; // Exact match — highest priority
+                    matchedRound = 4; // Exact match — highest priority
+                } else if (suffix3 && num.endsWith(suffix3)) {
+                    matchedRound = 3; // Last 3 digits match
                 } else if (suffix2 && num.endsWith(suffix2)) {
                     matchedRound = 2; // Last 2 digits match
                 } else if (num.endsWith(suffix1)) {
@@ -237,7 +242,9 @@ const checkWinning = async (req, res) => {
                 }
 
                 // Assign to the appropriate round
-                if (matchedRound === 3) {
+                if (matchedRound === 4) {
+                    round4Matches.push(transformSale(sale, num, 4));
+                } else if (matchedRound === 3) {
                     round3Matches.push(transformSale(sale, num, 3));
                 } else if (matchedRound === 2) {
                     round2Matches.push(transformSale(sale, num, 2));
@@ -248,7 +255,7 @@ const checkWinning = async (req, res) => {
         }
 
         // ── Build summary ───────────────────────────────────────────
-        const totalWinners = round3Matches.length + round2Matches.length + round1Matches.length;
+        const totalWinners = round4Matches.length + round3Matches.length + round2Matches.length + round1Matches.length;
         const isWinner = totalWinners > 0;
 
         // ── Format window dates for frontend display ────────────────
@@ -277,12 +284,14 @@ const checkWinning = async (req, res) => {
             },
             total_sales_checked: sales.length,
             summary: {
+                round_4_count: round4Matches.length,
                 round_3_count: round3Matches.length,
                 round_2_count: round2Matches.length,
                 round_1_count: round1Matches.length,
                 total_winners: totalWinners
             },
             results: {
+                round_4: round4Matches,
                 round_3: round3Matches,
                 round_2: round2Matches,
                 round_1: round1Matches
