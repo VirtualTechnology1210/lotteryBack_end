@@ -10,7 +10,7 @@ module.exports = {
 
         await queryInterface.bulkInsert('users', [{
             name: 'Admin',
-            email: 'admin@lottery.com',
+            email: 'admin',
             password: hashedPassword,
             role_id: 1, // Explicitly assign Admin role
             createdAt: new Date(),
@@ -19,6 +19,6 @@ module.exports = {
     },
 
     async down(queryInterface, Sequelize) {
-        await queryInterface.bulkDelete('users', { email: 'admin@lottery.com' }, {});
+        await queryInterface.bulkDelete('users', { email: 'admin' }, {});
     }
 };

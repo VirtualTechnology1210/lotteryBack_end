@@ -169,11 +169,15 @@ const checkWinning = async (req, res) => {
             return sendError(res, `Invalid time slot format: "${timeSlotStr}". Expected format like "3:00 PM" or "15:00"`, 400);
         }
 
-        // ── Extract suffix patterns for matching ────────────────────
-        const suffix1 = trimmedNumber.slice(-1);                           // Last 1 digit
-        const suffix2 = trimmedNumber.length >= 2 ? trimmedNumber.slice(-2) : null; // Last 2 digits
-        const suffix3 = trimmedNumber.length >= 3 ? trimmedNumber.slice(-3) : null; // Last 3 digits
-        const fullNumber = trimmedNumber;                                  // Exact match
+        // ── Build dynamic suffix patterns based on input length ────
+        // For input "4325" (length 4): suffixes = ["4325", "325", "25", "5"]
+        // For input "325"  (length 3): suffixes = ["325", "25", "5"]
+        // For input "25"   (length 2): suffixes = ["25", "5"]
+        const inputLength = trimmedNumber.length;
+        const suffixes = []; // Index 0 = full input (highest priority), last = 1 digit
+        for (let i = inputLength; i >= 1; i--) {
+            suffixes.push(trimmedNumber.slice(-i));
+        }
 
         // ── Query ALL sales in the time window for this category ────
         // We fetch all sales (not pre-filtered by desc) because we need
@@ -213,11 +217,9 @@ const checkWinning = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
-        // ── Round-based matching (highest round priority) ───────────
-        const round4Matches = []; // Exact match (highest priority)
-        const round3Matches = []; // Last 3 digits match
-        const round2Matches = []; // Last 2 digits match
-        const round1Matches = []; // Last 1 digit match
+        // ── Dynamic round-based matching (highest round priority) ───
+        // Create a bucket for each digit level: index 0 = inputLength digits (exact), index 1 = inputLength-1, etc.
+        const roundBuckets = suffixes.map(() => []);
 
         for (const sale of sales) {
             if (!sale.desc) continue;
@@ -227,35 +229,40 @@ const checkWinning = async (req, res) => {
             const lotteryNumbers = sale.desc.split(',').map(n => n.trim()).filter(n => n.length > 0);
 
             for (const num of lotteryNumbers) {
-                // Determine the HIGHEST round this lottery number matches
-                // Check from highest to lowest priority
-                let matchedRound = null;
-
-                if (num === fullNumber) {
-                    matchedRound = 4; // Exact match — highest priority
-                } else if (suffix3 && num.endsWith(suffix3)) {
-                    matchedRound = 3; // Last 3 digits match
-                } else if (suffix2 && num.endsWith(suffix2)) {
-                    matchedRound = 2; // Last 2 digits match
-                } else if (num.endsWith(suffix1)) {
-                    matchedRound = 1; // Last 1 digit match
-                }
-
-                // Assign to the appropriate round
-                if (matchedRound === 4) {
-                    round4Matches.push(transformSale(sale, num, 4));
-                } else if (matchedRound === 3) {
-                    round3Matches.push(transformSale(sale, num, 3));
-                } else if (matchedRound === 2) {
-                    round2Matches.push(transformSale(sale, num, 2));
-                } else if (matchedRound === 1) {
-                    round1Matches.push(transformSale(sale, num, 1));
+                // Check from highest digit count to lowest (right-to-left suffix matching)
+                // Each number can only match once at its HIGHEST matching level
+                let matched = false;
+                for (let i = 0; i < suffixes.length; i++) {
+                    if (num.endsWith(suffixes[i])) {
+                        const digitCount = inputLength - i; // e.g. for i=0, digitCount = inputLength (exact)
+                        roundBuckets[i].push(transformSale(sale, num, digitCount));
+                        matched = true;
+                        break; // Assigned to highest round, skip lower rounds
+                    }
                 }
             }
         }
 
-        // ── Build summary ───────────────────────────────────────────
-        const totalWinners = round4Matches.length + round3Matches.length + round2Matches.length + round1Matches.length;
+        // ── Build dynamic rounds array for response ─────────────────
+        const rounds = [];
+        let totalWinners = 0;
+        for (let i = 0; i < suffixes.length; i++) {
+            const digitCount = inputLength - i;
+            const isExact = (i === 0);
+            const label = isExact
+                ? `Exact Match (${digitCount}-digit)`
+                : (digitCount === 1 ? 'Last Digit' : `Last ${digitCount} Digits`);
+
+            rounds.push({
+                digit_count: digitCount,
+                label: label,
+                suffix: suffixes[i],
+                count: roundBuckets[i].length,
+                matches: roundBuckets[i]
+            });
+            totalWinners += roundBuckets[i].length;
+        }
+
         const isWinner = totalWinners > 0;
 
         // ── Format window dates for frontend display ────────────────
@@ -274,6 +281,7 @@ const checkWinning = async (req, res) => {
         return sendSuccess(res, isWinner ? 'Winning numbers found!' : 'No matching sales found', {
             is_winner: isWinner,
             lottery_number: trimmedNumber,
+            input_length: inputLength,
             category_name: category.category_name,
             time_slot: timeSlotStr,
             window: {
@@ -283,19 +291,8 @@ const checkWinning = async (req, res) => {
                 end_display: formatForDisplay(window.end)
             },
             total_sales_checked: sales.length,
-            summary: {
-                round_4_count: round4Matches.length,
-                round_3_count: round3Matches.length,
-                round_2_count: round2Matches.length,
-                round_1_count: round1Matches.length,
-                total_winners: totalWinners
-            },
-            results: {
-                round_4: round4Matches,
-                round_3: round3Matches,
-                round_2: round2Matches,
-                round_1: round1Matches
-            }
+            total_winners: totalWinners,
+            rounds: rounds
         });
 
     } catch (error) {

@@ -19,7 +19,7 @@ const login = async (req, res) => {
         // Validate required fields
         const errors = [];
         if (!email || email.trim() === '') {
-            errors.push({ field: 'email', message: 'Email is required' });
+            errors.push({ field: 'email', message: 'Username/Email is required' });
         }
         if (!password || password.trim() === '') {
             errors.push({ field: 'password', message: 'Password is required' });
@@ -40,14 +40,14 @@ const login = async (req, res) => {
         });
 
         if (!user) {
-            return sendError(res, 'Invalid email or password', 401);
+            return sendError(res, 'Invalid username/email or password', 401);
         }
 
         // Verify password
         const isPasswordValid = await bcrypt.compare(password, user.password);
 
         if (!isPasswordValid) {
-            return sendError(res, 'Invalid email or password', 401);
+            return sendError(res, 'Invalid username/email or password', 401);
         }
 
         // Generate JWT token

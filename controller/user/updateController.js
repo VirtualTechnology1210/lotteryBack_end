@@ -30,7 +30,7 @@ const updateUser = async (req, res) => {
             errors.push({ field: 'name', message: 'Name cannot be empty' });
         }
         if (email !== undefined && email.trim() === '') {
-            errors.push({ field: 'email', message: 'Email cannot be empty' });
+            errors.push({ field: 'email', message: 'Username/Email cannot be empty' });
         }
         if (password !== undefined && password.length < 6) {
             errors.push({ field: 'password', message: 'Password must be at least 6 characters' });
@@ -47,7 +47,7 @@ const updateUser = async (req, res) => {
             });
 
             if (existingUser) {
-                return sendError(res, 'Email already exists', 409);
+                return sendError(res, 'Username/Email already exists', 409);
             }
         }
 

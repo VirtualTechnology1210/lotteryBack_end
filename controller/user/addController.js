@@ -22,7 +22,7 @@ const addUser = async (req, res) => {
             errors.push({ field: 'name', message: 'Name is required' });
         }
         if (!email || email.trim() === '') {
-            errors.push({ field: 'email', message: 'Email is required' });
+            errors.push({ field: 'email', message: 'Username/Email is required' });
         }
         if (!password || password.trim() === '') {
             errors.push({ field: 'password', message: 'Password is required' });
@@ -40,7 +40,7 @@ const addUser = async (req, res) => {
         });
 
         if (existingUser) {
-            return sendError(res, 'Email already exists', 409);
+            return sendError(res, 'Username/Email already exists', 409);
         }
 
         // Validate role_id if provided
