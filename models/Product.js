@@ -50,6 +50,16 @@ module.exports = (sequelize) => {
             type: DataTypes.STRING(5),
             allowNull: true,
             defaultValue: null,
+        },
+        digit_type: {
+            type: DataTypes.TINYINT,
+            allowNull: true,
+            defaultValue: null,
+        },
+        winning_amounts: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            defaultValue: null,
         }
     }, {
         tableName: 'products',

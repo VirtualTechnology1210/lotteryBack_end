@@ -20,7 +20,7 @@ const { sendSuccess, sendError, sendValidationError } = require('../../utils/res
  */
 const addProduct = async (req, res) => {
     try {
-        const { category_id, product_name, product_code, price, status, box, index_type } = req.body;
+        const { category_id, product_name, product_code, price, status, box, index_type, digit_type, winning_amounts } = req.body;
         const user_id = req.user.id; // Get the logged-in user's ID
 
         // Validate required fields
@@ -44,6 +44,41 @@ const addProduct = async (req, res) => {
             validationErrors.push({ field: 'price', message: 'Price must be a valid positive number' });
         }
 
+        // ── Auto-derive digit_type from index_type if needed ──
+        let effectiveDigitType = digit_type !== undefined && digit_type !== null ? parseInt(digit_type) : null;
+        const isIndexBased = index_type && index_type.length >= 1;
+        if (isIndexBased && effectiveDigitType === null) {
+            // Single letter (A,B,C) → 1 digit; Double letter (AB,BC,AC) → 2 digits
+            effectiveDigitType = index_type.length === 1 ? 1 : (index_type.length === 2 ? 2 : null);
+        }
+
+        // Validate digit_type
+        if (effectiveDigitType !== null) {
+            if (![1, 2, 3, 4].includes(effectiveDigitType)) {
+                validationErrors.push({ field: 'digit_type', message: 'Digit type must be 1, 2, 3, or 4' });
+            } else if (winning_amounts) {
+                const wa = typeof winning_amounts === 'string' ? JSON.parse(winning_amounts) : winning_amounts;
+                if (isIndexBased) {
+                    // Index-based: only need one prize at key = effectiveDigitType
+                    const key = String(effectiveDigitType);
+                    if (wa[key] === undefined || wa[key] === null || wa[key] === '') {
+                        validationErrors.push({ field: 'winning_amounts', message: 'Prize amount is required' });
+                    } else if (isNaN(parseFloat(wa[key])) || parseFloat(wa[key]) < 0) {
+                        validationErrors.push({ field: 'winning_amounts', message: 'Prize amount must be a valid positive number' });
+                    }
+                } else {
+                    // Manual: need all levels 1..effectiveDigitType
+                    for (let i = 1; i <= effectiveDigitType; i++) {
+                        if (wa[String(i)] === undefined || wa[String(i)] === null || wa[String(i)] === '') {
+                            validationErrors.push({ field: 'winning_amounts', message: `Winning amount for ${i}-digit match is required` });
+                        } else if (isNaN(parseFloat(wa[String(i)])) || parseFloat(wa[String(i)]) < 0) {
+                            validationErrors.push({ field: 'winning_amounts', message: `Winning amount for ${i}-digit match must be a valid positive number` });
+                        }
+                    }
+                }
+            }
+        }
+
         if (validationErrors.length > 0) {
             return sendValidationError(res, validationErrors);
         }
@@ -63,6 +98,22 @@ const addProduct = async (req, res) => {
             return sendError(res, 'Product code already exists. Please use a unique code.', 409);
         }
 
+        // Parse winning_amounts if provided
+        let parsedWinningAmounts = null;
+        if (effectiveDigitType && winning_amounts) {
+            const wa = typeof winning_amounts === 'string' ? JSON.parse(winning_amounts) : winning_amounts;
+            parsedWinningAmounts = {};
+            if (isIndexBased) {
+                // Index-based: store single prize at key = effectiveDigitType
+                parsedWinningAmounts[String(effectiveDigitType)] = parseFloat(wa[String(effectiveDigitType)]);
+            } else {
+                // Manual: store all levels 1..effectiveDigitType
+                for (let i = 1; i <= effectiveDigitType; i++) {
+                    parsedWinningAmounts[String(i)] = parseFloat(wa[String(i)]);
+                }
+            }
+        }
+
         // Create product
         const product = await Product.create({
             category_id,
@@ -72,7 +123,9 @@ const addProduct = async (req, res) => {
             user_id,
             status: status !== undefined ? status : 1,
             box: box !== undefined ? box : 0,
-            index_type: index_type || null
+            index_type: index_type || null,
+            digit_type: effectiveDigitType,
+            winning_amounts: parsedWinningAmounts
         });
 
         // Fetch the product with associations for response
@@ -97,6 +150,8 @@ const addProduct = async (req, res) => {
                 status: productWithDetails.status,
                 box: productWithDetails.box,
                 index_type: productWithDetails.index_type || null,
+                digit_type: productWithDetails.digit_type || null,
+                winning_amounts: productWithDetails.winning_amounts || null,
                 user_id: productWithDetails.user_id,
                 createdAt: productWithDetails.createdAt,
                 updatedAt: productWithDetails.updatedAt

@@ -93,23 +93,59 @@ const calculateTimeWindow = (timeSlotStr) => {
 
 /**
  * Transform a sale record for response
+ * @param {Object} sale - The sale record
+ * @param {string} lotteryNumber - The matched lottery number from desc
+ * @param {number} matchRound - The digit count that matched (0 = index match)
+ * @param {number} matchQty - How many times THIS specific number matched (usually 1)
  */
-const transformSale = (sale, lotteryNumber, matchRound) => ({
-    id: sale.id,
-    invoice_number: sale.invoice_number || 'N/A',
-    product_name: sale.product?.product_name || '-',
-    product_code: sale.product?.product_code || '-',
-    desc: sale.desc,
-    lottery_number: lotteryNumber,
-    qty: sale.qty,
-    price: parseFloat(sale.price),
-    total: parseFloat(sale.price) * sale.qty,
-    box: sale.product?.box || 0,
-    index_type: sale.product?.index_type || null,
-    sold_by: sale.createdBy?.name || '-',
-    sold_at: sale.createdAt,
-    match_round: matchRound
-});
+const transformSale = (sale, lotteryNumber, matchRound, matchQty = 1) => {
+    const product = sale.product;
+    let winningAmount = 0;
+
+    if (product && product.digit_type && product.winning_amounts) {
+        let wa = product.winning_amounts;
+        // Parse if stringified
+        while (typeof wa === 'string') {
+            try { wa = JSON.parse(wa); } catch (e) { wa = null; break; }
+        }
+
+        if (wa) {
+            const indexType = product.index_type || null;
+            const isIndexBased = indexType && indexType.length >= 1;
+
+            if (matchRound === 0 && isIndexBased) {
+                // Index match: prize stored at key = digit_type
+                winningAmount = parseFloat(wa[String(product.digit_type)]) || 0;
+            } else if (matchRound > 0) {
+                // Regular suffix match: prize at key = matchRound (the digit count that matched)
+                winningAmount = parseFloat(wa[String(matchRound)]) || 0;
+            }
+        }
+    }
+
+    // Use matchQty (per individual number) NOT sale.qty for winning calculation.
+    // For box products, desc contains comma-separated numbers and sale.qty = total count,
+    // but each individual number match should only win once (matchQty = 1).
+    // For non-box single-number entries, matchQty equals the actual qty purchased for that number.
+    return {
+        id: sale.id,
+        invoice_number: sale.invoice_number || 'N/A',
+        product_name: product?.product_name || '-',
+        product_code: product?.product_code || '-',
+        desc: sale.desc,
+        lottery_number: lotteryNumber,
+        qty: matchQty,
+        price: parseFloat(sale.price),
+        total: parseFloat(sale.price) * matchQty,
+        box: product?.box || 0,
+        index_type: product?.index_type || null,
+        sold_by: sale.createdBy?.name || '-',
+        sold_at: sale.createdAt,
+        match_round: matchRound,
+        winning_amount: winningAmount,
+        total_winning_amount: winningAmount * matchQty
+    };
+};
 
 /**
  * Check lottery winning number against sales in the time-slot window
@@ -198,7 +234,7 @@ const checkWinning = async (req, res) => {
                 {
                     model: Product,
                     as: 'product',
-                    attributes: ['id', 'product_name', 'product_code', 'price', 'category_id', 'box', 'index_type'],
+                    attributes: ['id', 'product_name', 'product_code', 'price', 'category_id', 'box', 'index_type', 'digit_type', 'winning_amounts'],
                     where: {
                         category_id: category_id
                     },
@@ -251,6 +287,12 @@ const checkWinning = async (req, res) => {
             // desc can be: "231, 213, 321, 312, 123, 132" or single "7653"
             const lotteryNumbers = sale.desc.split(',').map(n => n.trim()).filter(n => n.length > 0);
 
+            // Determine per-match qty:
+            // - If desc has multiple comma-separated numbers (box permutations), each match = 1 unit
+            // - If desc is a single number, the entire sale.qty applies to that one number
+            const isMultiNumber = lotteryNumbers.length > 1;
+            const perMatchQty = isMultiNumber ? 1 : (sale.qty || 1);
+
             for (const num of lotteryNumbers) {
 
                 // ── INDEX-TYPE PRODUCT MATCHING ──────────────────────
@@ -262,20 +304,20 @@ const checkWinning = async (req, res) => {
 
                     if (expectedValue && num === expectedValue) {
                         // Index match! Add to index bucket
-                        indexBucket.push(transformSale(sale, num, 0)); // matchRound=0 signals index match
+                        indexBucket.push(transformSale(sale, num, 0, perMatchQty)); // matchRound=0 signals index match
                     }
                     // Index products are NEVER checked for regular suffix matching
                     continue;
                 }
 
-                // ── REGULAR SUFFIX MATCHING (unchanged) ────────────
+                // ── REGULAR SUFFIX MATCHING ─────────────────────────
                 // Check from highest digit count to lowest (right-to-left suffix matching)
                 // Each number can only match once at its HIGHEST matching level
                 let matched = false;
                 for (let i = 0; i < suffixes.length; i++) {
                     if (num.endsWith(suffixes[i])) {
                         const digitCount = inputLength - i; // e.g. for i=0, digitCount = inputLength (exact)
-                        roundBuckets[i].push(transformSale(sale, num, digitCount));
+                        roundBuckets[i].push(transformSale(sale, num, digitCount, perMatchQty));
                         matched = true;
                         break; // Assigned to highest round, skip lower rounds
                     }
@@ -286,6 +328,8 @@ const checkWinning = async (req, res) => {
         // ── Build dynamic rounds array for response ─────────────────
         const rounds = [];
         let totalWinners = 0;
+        let grandTotalWinningAmount = 0;
+
         for (let i = 0; i < suffixes.length; i++) {
             const digitCount = inputLength - i;
             const isExact = (i === 0);
@@ -293,26 +337,33 @@ const checkWinning = async (req, res) => {
                 ? `Exact Match (${digitCount}-digit)`
                 : (digitCount === 1 ? 'Last Digit' : `Last ${digitCount} Digits`);
 
+            const roundWinningAmount = roundBuckets[i].reduce((sum, m) => sum + (m.total_winning_amount || 0), 0);
+
             rounds.push({
                 digit_count: digitCount,
                 label: label,
                 suffix: suffixes[i],
                 count: roundBuckets[i].length,
-                matches: roundBuckets[i]
+                matches: roundBuckets[i],
+                total_winning_amount: roundWinningAmount
             });
             totalWinners += roundBuckets[i].length;
+            grandTotalWinningAmount += roundWinningAmount;
         }
 
         // ── Add Index Match round if any index matches exist ─────────
         if (indexBucket.length > 0) {
+            const indexWinningAmount = indexBucket.reduce((sum, m) => sum + (m.total_winning_amount || 0), 0);
             rounds.push({
                 digit_count: 0,  // 0 signals "index match" in the frontend
                 label: 'Index Match',
                 suffix: 'IDX',
                 count: indexBucket.length,
-                matches: indexBucket
+                matches: indexBucket,
+                total_winning_amount: indexWinningAmount
             });
             totalWinners += indexBucket.length;
+            grandTotalWinningAmount += indexWinningAmount;
         }
 
         const isWinner = totalWinners > 0;
@@ -345,6 +396,7 @@ const checkWinning = async (req, res) => {
             },
             total_sales_checked: sales.length,
             total_winners: totalWinners,
+            grand_total_winning_amount: grandTotalWinningAmount,
             rounds: rounds
         });
 

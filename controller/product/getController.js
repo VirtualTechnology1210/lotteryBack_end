@@ -21,6 +21,8 @@ const transformProduct = (product) => {
         status: product.status,
         box: product.box,
         index_type: product.index_type || null,
+        digit_type: product.digit_type || null,
+        winning_amounts: product.winning_amounts || null,
         user_id: product.user_id,
         created_by: product.createdBy?.name || null,
         createdAt: product.createdAt,

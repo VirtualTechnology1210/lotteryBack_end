@@ -22,7 +22,7 @@ const { sendSuccess, sendError, sendValidationError, sendNotFound } = require('.
 const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
-        const { category_id, product_name, product_code, price, status, box, index_type } = req.body;
+        const { category_id, product_name, product_code, price, status, box, index_type, digit_type, winning_amounts } = req.body;
 
         // Find the product
         const product = await Product.findByPk(id);
@@ -44,6 +44,39 @@ const updateProduct = async (req, res) => {
 
         if (price !== undefined && (isNaN(parseFloat(price)) || parseFloat(price) < 0)) {
             validationErrors.push({ field: 'price', message: 'Price must be a valid positive number' });
+        }
+
+        // ── Auto-derive digit_type from index_type if needed ──
+        const effectiveIndexType = index_type !== undefined ? (index_type || null) : product.index_type;
+        let effectiveDigitType = digit_type !== undefined && digit_type !== null ? parseInt(digit_type) : (digit_type === undefined ? product.digit_type : null);
+        const isIndexBased = effectiveIndexType && effectiveIndexType.length >= 1;
+        if (isIndexBased && (effectiveDigitType === null || effectiveDigitType === undefined)) {
+            effectiveDigitType = effectiveIndexType.length === 1 ? 1 : (effectiveIndexType.length === 2 ? 2 : null);
+        }
+
+        // Validate digit_type
+        if (effectiveDigitType !== null && effectiveDigitType !== undefined) {
+            if (![1, 2, 3, 4].includes(effectiveDigitType)) {
+                validationErrors.push({ field: 'digit_type', message: 'Digit type must be 1, 2, 3, or 4' });
+            } else if (winning_amounts) {
+                const wa = typeof winning_amounts === 'string' ? JSON.parse(winning_amounts) : winning_amounts;
+                if (isIndexBased) {
+                    const key = String(effectiveDigitType);
+                    if (wa[key] === undefined || wa[key] === null || wa[key] === '') {
+                        validationErrors.push({ field: 'winning_amounts', message: 'Prize amount is required' });
+                    } else if (isNaN(parseFloat(wa[key])) || parseFloat(wa[key]) < 0) {
+                        validationErrors.push({ field: 'winning_amounts', message: 'Prize amount must be a valid positive number' });
+                    }
+                } else {
+                    for (let i = 1; i <= effectiveDigitType; i++) {
+                        if (wa[String(i)] === undefined || wa[String(i)] === null || wa[String(i)] === '') {
+                            validationErrors.push({ field: 'winning_amounts', message: `Winning amount for ${i}-digit match is required` });
+                        } else if (isNaN(parseFloat(wa[String(i)])) || parseFloat(wa[String(i)]) < 0) {
+                            validationErrors.push({ field: 'winning_amounts', message: `Winning amount for ${i}-digit match must be a valid positive number` });
+                        }
+                    }
+                }
+            }
         }
 
         if (validationErrors.length > 0) {
@@ -83,6 +116,26 @@ const updateProduct = async (req, res) => {
         if (box !== undefined) updateData.box = box;
         if (index_type !== undefined) updateData.index_type = index_type || null;
 
+        // Always set digit_type based on derivation
+        updateData.digit_type = effectiveDigitType !== null && effectiveDigitType !== undefined ? effectiveDigitType : null;
+
+        if (winning_amounts !== undefined) {
+            if (winning_amounts && effectiveDigitType) {
+                const wa = typeof winning_amounts === 'string' ? JSON.parse(winning_amounts) : winning_amounts;
+                const parsedWa = {};
+                if (isIndexBased) {
+                    parsedWa[String(effectiveDigitType)] = parseFloat(wa[String(effectiveDigitType)]);
+                } else {
+                    for (let i = 1; i <= effectiveDigitType; i++) {
+                        parsedWa[String(i)] = parseFloat(wa[String(i)]);
+                    }
+                }
+                updateData.winning_amounts = parsedWa;
+            } else {
+                updateData.winning_amounts = winning_amounts || null;
+            }
+        }
+
         // Update the product
         await product.update(updateData);
 
@@ -108,6 +161,8 @@ const updateProduct = async (req, res) => {
                 status: updatedProduct.status,
                 box: updatedProduct.box,
                 index_type: updatedProduct.index_type || null,
+                digit_type: updatedProduct.digit_type || null,
+                winning_amounts: updatedProduct.winning_amounts || null,
                 user_id: updatedProduct.user_id,
                 createdAt: updatedProduct.createdAt,
                 updatedAt: updatedProduct.updatedAt
