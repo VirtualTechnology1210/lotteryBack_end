@@ -105,6 +105,7 @@ const transformSale = (sale, lotteryNumber, matchRound) => ({
     price: parseFloat(sale.price),
     total: parseFloat(sale.price) * sale.qty,
     box: sale.product?.box || 0,
+    index_type: sale.product?.index_type || null,
     sold_by: sale.createdBy?.name || '-',
     sold_at: sale.createdAt,
     match_round: matchRound
@@ -197,7 +198,7 @@ const checkWinning = async (req, res) => {
                 {
                     model: Product,
                     as: 'product',
-                    attributes: ['id', 'product_name', 'product_code', 'price', 'category_id', 'box'],
+                    attributes: ['id', 'product_name', 'product_code', 'price', 'category_id', 'box', 'index_type'],
                     where: {
                         category_id: category_id
                     },
@@ -217,18 +218,57 @@ const checkWinning = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
+        // ── INDEX MATCHING SETUP ────────────────────────────────────
+        // For a winning number like "9786", last 3 digits = "786"
+        //   A = 3rd from last (7), B = 2nd from last (8), C = last (6)
+        //   AB = "78", BC = "86", AC = "76"
+        const last3 = trimmedNumber.length >= 3 ? trimmedNumber.slice(-3) : trimmedNumber;
+        const indexDigits = {};
+        if (last3.length >= 1) indexDigits['C'] = last3.slice(-1);          // last digit
+        if (last3.length >= 2) indexDigits['B'] = last3.slice(-2, -1);      // 2nd from last
+        if (last3.length >= 3) indexDigits['A'] = last3.slice(-3, -2);      // 3rd from last
+
+        // Combo indices — concatenate the respective digits
+        if (indexDigits['A'] && indexDigits['B']) indexDigits['AB'] = indexDigits['A'] + indexDigits['B'];
+        if (indexDigits['B'] && indexDigits['C']) indexDigits['BC'] = indexDigits['B'] + indexDigits['C'];
+        if (indexDigits['A'] && indexDigits['C']) indexDigits['AC'] = indexDigits['A'] + indexDigits['C'];
+
+        console.log('[Winning] Index digits extracted:', indexDigits);
+
         // ── Dynamic round-based matching (highest round priority) ───
         // Create a bucket for each digit level: index 0 = inputLength digits (exact), index 1 = inputLength-1, etc.
         const roundBuckets = suffixes.map(() => []);
 
+        // Additional bucket for index-type matches
+        const indexBucket = [];
+
         for (const sale of sales) {
             if (!sale.desc) continue;
+
+            const productIndexType = sale.product?.index_type || null;
 
             // Split desc by commas — each is an individual lottery number
             // desc can be: "231, 213, 321, 312, 123, 132" or single "7653"
             const lotteryNumbers = sale.desc.split(',').map(n => n.trim()).filter(n => n.length > 0);
 
             for (const num of lotteryNumbers) {
+
+                // ── INDEX-TYPE PRODUCT MATCHING ──────────────────────
+                // If the product has an index_type (A, B, C, AB, BC, AC), 
+                // compare the sale number directly with the extracted digit(s)
+                if (productIndexType) {
+                    const upperIdx = productIndexType.toUpperCase();
+                    const expectedValue = indexDigits[upperIdx];
+
+                    if (expectedValue && num === expectedValue) {
+                        // Index match! Add to index bucket
+                        indexBucket.push(transformSale(sale, num, 0)); // matchRound=0 signals index match
+                    }
+                    // Index products are NEVER checked for regular suffix matching
+                    continue;
+                }
+
+                // ── REGULAR SUFFIX MATCHING (unchanged) ────────────
                 // Check from highest digit count to lowest (right-to-left suffix matching)
                 // Each number can only match once at its HIGHEST matching level
                 let matched = false;
@@ -263,6 +303,18 @@ const checkWinning = async (req, res) => {
             totalWinners += roundBuckets[i].length;
         }
 
+        // ── Add Index Match round if any index matches exist ─────────
+        if (indexBucket.length > 0) {
+            rounds.push({
+                digit_count: 0,  // 0 signals "index match" in the frontend
+                label: 'Index Match',
+                suffix: 'IDX',
+                count: indexBucket.length,
+                matches: indexBucket
+            });
+            totalWinners += indexBucket.length;
+        }
+
         const isWinner = totalWinners > 0;
 
         // ── Format window dates for frontend display ────────────────
@@ -282,6 +334,7 @@ const checkWinning = async (req, res) => {
             is_winner: isWinner,
             lottery_number: trimmedNumber,
             input_length: inputLength,
+            index_digits: indexDigits,
             category_name: category.category_name,
             time_slot: timeSlotStr,
             window: {

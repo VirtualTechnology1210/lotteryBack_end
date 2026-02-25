@@ -20,6 +20,7 @@ const transformProduct = (product) => {
         price: parseFloat(product.price),
         status: product.status,
         box: product.box,
+        index_type: product.index_type || null,
         user_id: product.user_id,
         created_by: product.createdBy?.name || null,
         createdAt: product.createdAt,
@@ -41,7 +42,7 @@ const transformProduct = (product) => {
  */
 const getAllProducts = async (req, res) => {
     try {
-        const { category_id, status, search, page = 1, limit = 10 } = req.query;
+        const { category_id, status, search, page = 1, limit = 1000 } = req.query;
 
         // Build where clause
         const whereClause = {};

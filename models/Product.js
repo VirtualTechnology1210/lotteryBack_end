@@ -45,6 +45,11 @@ module.exports = (sequelize) => {
             type: DataTypes.TINYINT,
             allowNull: false,
             defaultValue: 0,
+        },
+        index_type: {
+            type: DataTypes.STRING(5),
+            allowNull: true,
+            defaultValue: null,
         }
     }, {
         tableName: 'products',
@@ -65,7 +70,7 @@ module.exports = (sequelize) => {
         Product.belongsTo(models.User, {
             foreignKey: 'user_id',
             as: 'createdBy'
-        }); 
+        });
 
         // Has many Sales
         Product.hasMany(models.Sales, {

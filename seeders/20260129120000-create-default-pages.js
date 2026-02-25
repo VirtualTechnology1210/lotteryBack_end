@@ -9,6 +9,7 @@ module.exports = {
             'Products',
             'Sales',
             'Reports',
+            'Rate Summary',
             'Users',
             'Roles & Permissions',
             'Winning'

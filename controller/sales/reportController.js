@@ -420,9 +420,80 @@ const getSalesReportByUser = async (req, res) => {
     }
 };
 
+const getRateSummaryReport = async (req, res) => {
+    try {
+        const { start_date, end_date, user_id } = req.query;
+
+        let filters = '';
+        const replacements = {};
+
+        // DATA ISOLATION: Non-admin users can only see their own data
+        const isAdmin = req.user.role === 'admin';
+        if (!isAdmin) {
+            filters += ' AND s.user_id = :reqUserId';
+            replacements.reqUserId = req.user.id;
+        } else if (user_id && user_id !== 'all') {
+            filters += ' AND s.user_id = :userId';
+            replacements.userId = user_id;
+        }
+
+        if (start_date) {
+            filters += ' AND s.createdAt >= :startDate';
+            replacements.startDate = `${start_date} 00:00:00`;
+        }
+
+        if (end_date) {
+            filters += ' AND s.createdAt <= :endDate';
+            replacements.endDate = `${end_date} 23:59:59`;
+        }
+
+        // Use raw query for grouped report by rate (product price)
+        const [rateReport] = await sequelize.query(`
+            SELECT 
+                p.price as rate,
+                SUM(s.qty) as total_quantity,
+                SUM(s.price) as total_amount
+            FROM sales s
+            INNER JOIN products p ON s.product_id = p.id
+            WHERE 1=1 ${filters}
+            GROUP BY p.price
+            ORDER BY p.price ASC
+        `, { replacements });
+
+        // Transform data
+        const reportData = rateReport.map(item => ({
+            rate: parseFloat(item.rate) || 0,
+            total_quantity: parseInt(item.total_quantity) || 0,
+            total_amount: parseFloat(item.total_amount) || 0
+        }));
+
+        // Calculate overall totals
+        const overallTotals = reportData.reduce((acc, item) => {
+            acc.total_quantity += item.total_quantity;
+            acc.total_amount += item.total_amount;
+            return acc;
+        }, { total_quantity: 0, total_amount: 0 });
+
+        return sendSuccess(res, 'Rate summary report fetched successfully', {
+            filters: {
+                start_date: start_date || null,
+                end_date: end_date || null,
+                user_id: user_id || null
+            },
+            overall_summary: overallTotals,
+            report: reportData
+        });
+
+    } catch (error) {
+        console.error('Get rate summary report error:', error);
+        return sendError(res, 'An error occurred while fetching rate summary report.');
+    }
+};
+
 module.exports = {
     getSalesReport,
     getSalesReportByCategory,
     getSalesReportByProduct,
-    getSalesReportByUser
+    getSalesReportByUser,
+    getRateSummaryReport
 };

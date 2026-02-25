@@ -22,7 +22,7 @@ const { sendSuccess, sendError, sendValidationError, sendNotFound } = require('.
 const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
-        const { category_id, product_name, product_code, price, status, box } = req.body;
+        const { category_id, product_name, product_code, price, status, box, index_type } = req.body;
 
         // Find the product
         const product = await Product.findByPk(id);
@@ -81,6 +81,7 @@ const updateProduct = async (req, res) => {
         if (price !== undefined) updateData.price = parseFloat(price);
         if (status !== undefined) updateData.status = status;
         if (box !== undefined) updateData.box = box;
+        if (index_type !== undefined) updateData.index_type = index_type || null;
 
         // Update the product
         await product.update(updateData);
@@ -106,6 +107,7 @@ const updateProduct = async (req, res) => {
                 price: parseFloat(updatedProduct.price),
                 status: updatedProduct.status,
                 box: updatedProduct.box,
+                index_type: updatedProduct.index_type || null,
                 user_id: updatedProduct.user_id,
                 createdAt: updatedProduct.createdAt,
                 updatedAt: updatedProduct.updatedAt

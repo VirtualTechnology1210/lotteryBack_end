@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { getSalesReport, getSalesReportByCategory, getSalesReportByProduct, getSalesReportByUser } = require('../../controller/sales/reportController');
+const { getSalesReport, getSalesReportByCategory, getSalesReportByProduct, getSalesReportByUser, getRateSummaryReport } = require('../../controller/sales/reportController');
 const { authenticate } = require('../../middleware/authMiddleware');
 const { requireAdmin } = require('../../middleware/rbacMiddleware');
 
@@ -47,6 +47,13 @@ router.get('/by-product', authenticate, getSalesReportByProduct);
  * @access  Admin only
  */
 router.get('/by-user', authenticate, requireAdmin, getSalesReportByUser);
+
+/**
+ * @route   GET /api/sales/report/rate-summary
+ * @desc    Get sales report grouped by rate (price)
+ * @access  Authenticated users
+ */
+router.get('/rate-summary', authenticate, getRateSummaryReport);
 
 module.exports = router;
 

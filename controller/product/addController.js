@@ -20,7 +20,7 @@ const { sendSuccess, sendError, sendValidationError } = require('../../utils/res
  */
 const addProduct = async (req, res) => {
     try {
-        const { category_id, product_name, product_code, price, status, box } = req.body;
+        const { category_id, product_name, product_code, price, status, box, index_type } = req.body;
         const user_id = req.user.id; // Get the logged-in user's ID
 
         // Validate required fields
@@ -71,7 +71,8 @@ const addProduct = async (req, res) => {
             price: parseFloat(price),
             user_id,
             status: status !== undefined ? status : 1,
-            box: box !== undefined ? box : 0
+            box: box !== undefined ? box : 0,
+            index_type: index_type || null
         });
 
         // Fetch the product with associations for response
@@ -95,6 +96,7 @@ const addProduct = async (req, res) => {
                 price: productWithDetails.price,
                 status: productWithDetails.status,
                 box: productWithDetails.box,
+                index_type: productWithDetails.index_type || null,
                 user_id: productWithDetails.user_id,
                 createdAt: productWithDetails.createdAt,
                 updatedAt: productWithDetails.updatedAt
