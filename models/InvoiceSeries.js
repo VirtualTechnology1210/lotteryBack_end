@@ -41,28 +41,34 @@ module.exports = (sequelize) => {
      * @returns {Promise<string>} - Generated invoice number (e.g., "00001")
      */
     InvoiceSeries.getNextInvoiceNumber = async function (seriesName, transaction = null) {
-        const options = transaction ? { transaction, lock: true } : {};
+        const queryOptions = transaction ? { transaction } : {};
 
-        // Find the series with lock to prevent concurrent updates
-        const series = await this.findOne({
-            where: { series_name: seriesName },
-            ...options
-        });
+        // Atomic increment using MySQL's LAST_INSERT_ID() trick.
+        // This sets the session variable to the OLD value of next_number,
+        // then increments next_number — all in a single atomic UPDATE.
+        // No row-level lock needed, no SELECT before UPDATE.
+        const [results] = await sequelize.query(
+            `UPDATE invoice_series
+             SET next_number = LAST_INSERT_ID(next_number) + 1
+             WHERE series_name = :seriesName`,
+            {
+                replacements: { seriesName },
+                ...queryOptions
+            }
+        );
 
-        if (!series) {
+        // Check if the series exists (affectedRows = 0 means series_name not found)
+        if (results.affectedRows === 0) {
             throw new Error(`Invoice series '${seriesName}' not found`);
         }
 
-        const currentNumber = series.next_number;
-        const invoiceNumber = String(currentNumber);
-
-        // Increment the next_number
-        await series.update(
-            { next_number: currentNumber + 1 },
-            options
+        // LAST_INSERT_ID() returns the value BEFORE the increment — same as the old code
+        const [[row]] = await sequelize.query(
+            'SELECT LAST_INSERT_ID() as num',
+            queryOptions
         );
 
-        return invoiceNumber;
+        return String(row.num);
     };
 
     return InvoiceSeries;

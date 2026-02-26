@@ -43,6 +43,7 @@ db.Category = require('./Category')(sequelize);
 db.Product = require('./Product')(sequelize);
 db.Sales = require('./Sales')(sequelize);
 db.InvoiceSeries = require('./InvoiceSeries')(sequelize);
+db.WinningEntry = require('./WinningEntry')(sequelize);
 
 // Set up associations
 Object.keys(db).forEach(modelName => {

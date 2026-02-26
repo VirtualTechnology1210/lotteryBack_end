@@ -122,23 +122,26 @@ const getSalesReport = async (req, res) => {
         });
 
         // Transform sales data for report
-        const reportData = sales.map(sale => ({
-            id: sale.id,
-            invoice_number: sale.invoice_number || null,
-            product_id: sale.product_id,
-            product_name: sale.product?.product_name || null,
-            product_code: sale.product?.product_code || null,
-            category_id: sale.product?.category?.id || null,
-            category_name: sale.product?.category?.category_name || null,
-            desc: sale.desc,
-            qty: sale.qty,
-            unit_price: parseFloat(sale.product?.price || 0),
-            total: parseFloat(sale.price),  // price column stores total
-            created_by: sale.createdBy?.name || null,
-            user_id: sale.user_id,
-            created_at: sale.createdAt,
-            updated_at: sale.updatedAt
-        }));
+        const reportData = sales.map(s => {
+            const sale = s.get({ plain: true });
+            return {
+                id: sale.id,
+                invoice_number: sale.invoice_number || null,
+                product_id: sale.product_id,
+                product_name: sale.product?.product_name || null,
+                product_code: sale.product?.product_code || null,
+                category_id: sale.product?.category?.id || null,
+                category_name: sale.product?.category?.category_name || null,
+                desc: sale.desc,
+                qty: sale.qty,
+                unit_price: parseFloat(sale.product?.price || 0),
+                total: parseFloat(sale.price),  // price column stores total
+                created_by: sale.createdBy?.name || null,
+                user_id: sale.user_id,
+                created_at: sale.createdAt,
+                updated_at: sale.updatedAt
+            };
+        });
 
         return sendSuccess(res, 'Sales report fetched successfully', {
             filters: {

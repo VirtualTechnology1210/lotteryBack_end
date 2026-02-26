@@ -254,6 +254,14 @@ const checkWinning = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
+        // ── Calculate total sales amount for this category in the window ─
+        // This is the total REVENUE from all sales (price × qty),
+        // needed for the balance calculation: Sales Total - Winning Payout
+        let totalSalesAmount = 0;
+        for (const sale of sales) {
+            totalSalesAmount += parseFloat(sale.price) * (sale.qty || 1);
+        }
+
         // ── INDEX MATCHING SETUP ────────────────────────────────────
         // For a winning number like "9786", last 3 digits = "786"
         //   A = 3rd from last (7), B = 2nd from last (8), C = last (6)
@@ -311,6 +319,11 @@ const checkWinning = async (req, res) => {
                 }
 
                 // ── REGULAR SUFFIX MATCHING ─────────────────────────
+                // IMPORTANT: Only match sold numbers that have the SAME digit length
+                // as the winning number input. A 3-digit winning number should only
+                // match 3-digit sold numbers, NOT 4-digit ones (and vice versa).
+                if (num.length !== inputLength) continue;
+
                 // Check from highest digit count to lowest (right-to-left suffix matching)
                 // Each number can only match once at its HIGHEST matching level
                 let matched = false;
@@ -380,12 +393,16 @@ const checkWinning = async (req, res) => {
             });
         };
 
+        // ── Balance calculation ──────────────────────────────────────
+        const balance = totalSalesAmount - grandTotalWinningAmount;
+
         // ── Build Response ──────────────────────────────────────────
         return sendSuccess(res, isWinner ? 'Winning numbers found!' : 'No matching sales found', {
             is_winner: isWinner,
             lottery_number: trimmedNumber,
             input_length: inputLength,
             index_digits: indexDigits,
+            category_id: category.id,
             category_name: category.category_name,
             time_slot: timeSlotStr,
             window: {
@@ -395,8 +412,10 @@ const checkWinning = async (req, res) => {
                 end_display: formatForDisplay(window.end)
             },
             total_sales_checked: sales.length,
+            total_sales_amount: totalSalesAmount,
             total_winners: totalWinners,
             grand_total_winning_amount: grandTotalWinningAmount,
+            balance: balance,
             rounds: rounds
         });
 
