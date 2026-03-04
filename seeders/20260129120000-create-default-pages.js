@@ -12,7 +12,8 @@ module.exports = {
             'Rate Summary',
             'Users',
             'Roles & Permissions',
-            'Winning'
+            'Winning',
+            'Digit Summary'
         ];
 
         // Format data for bulk insert with timestamps
