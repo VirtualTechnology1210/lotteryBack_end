@@ -3,13 +3,19 @@
  * Handles lottery winning number verification against sales data
  * Uses time-slot-based 24-hour rolling window filtering
  * 
- * MATCHING LOGIC (Right-to-left suffix, highest round priority):
- *   Round 4: Exact match with entered number (highest priority)
- *   Round 3: Last 3 digits match
- *   Round 2: Last 2 digits match
- *   Round 1: Last 1 digit match
+ * MATCHING LOGIC (Right-to-left suffix, cascading across digit lengths):
+ *   When the winning number is N digits, it matches sold numbers of ALL lengths ≤ N.
+ *   For each sold number, its length determines the "effective winning number"
+ *   (the last L digits of the winning number, where L = sold number length).
+ *   Within each length group, highest-round-priority suffix matching applies:
  * 
- * Each lottery number is assigned to the HIGHEST round it qualifies for.
+ *   Example: Winning number = "4325" (4 digits)
+ *     4-digit sold numbers matched against "4325": Exact→Last 3→Last 2→Last 1
+ *     3-digit sold numbers matched against "325":  Exact→Last 2→Last 1
+ *     2-digit sold numbers matched against "25":   Exact→Last 1
+ *     1-digit sold numbers matched against "5":    Exact
+ * 
+ * Each sold number is assigned to the HIGHEST round it qualifies for.
  */
 
 const { Sales, Product, Category, User } = require('../../models');
@@ -279,9 +285,19 @@ const checkWinning = async (req, res) => {
 
         console.log('[Winning] Index digits extracted:', indexDigits);
 
-        // ── Dynamic round-based matching (highest round priority) ───
-        // Create a bucket for each digit level: index 0 = inputLength digits (exact), index 1 = inputLength-1, etc.
-        const roundBuckets = suffixes.map(() => []);
+        // ── CASCADING MATCH: Match sold numbers of ALL digit lengths ≤ inputLength ─
+        // For a 4-digit winning number "4325":
+        //   - 4-digit sold numbers are compared against "4325" with suffix matching: exact "4325", last 3 "325", last 2 "25", last 1 "5"
+        //   - 3-digit sold numbers are compared against last 3 digits "325" with suffix matching: exact "325", last 2 "25", last 1 "5"
+        //   - 2-digit sold numbers are compared against last 2 digits "25" with suffix matching: exact "25", last 1 "5"
+        //   - 1-digit sold numbers are compared against last 1 digit "5": exact "5"
+        //
+        // Round buckets are keyed by the suffix digit count, so we use a Map.
+        // Key = digit_count (how many digits matched), Value = array of transformed sales
+        const roundBucketsMap = {};
+        for (let d = inputLength; d >= 1; d--) {
+            roundBucketsMap[d] = [];
+        }
 
         // Additional bucket for index-type matches
         const indexBucket = [];
@@ -318,19 +334,26 @@ const checkWinning = async (req, res) => {
                     continue;
                 }
 
-                // ── REGULAR SUFFIX MATCHING ─────────────────────────
-                // IMPORTANT: Only match sold numbers that have the SAME digit length
-                // as the winning number input. A 3-digit winning number should only
-                // match 3-digit sold numbers, NOT 4-digit ones (and vice versa).
-                if (num.length !== inputLength) continue;
+                // ── REGULAR SUFFIX MATCHING (CASCADING) ─────────────
+                // The sold number's length determines which "effective winning number" we compare against.
+                // A sold number can only match if its length <= inputLength.
+                const numLen = num.length;
+                if (numLen > inputLength || numLen < 1) continue;
 
+                // The "effective winning number" for this sold number's length
+                // e.g., if winning = "4325" and sold = "325" (3 digits), effective = "325"
+                const effectiveWinning = trimmedNumber.slice(-numLen);
+
+                // Build suffix patterns for this effective number length
+                // e.g., for effectiveWinning "325": suffixes = ["325", "25", "5"]
                 // Check from highest digit count to lowest (right-to-left suffix matching)
                 // Each number can only match once at its HIGHEST matching level
                 let matched = false;
-                for (let i = 0; i < suffixes.length; i++) {
-                    if (num.endsWith(suffixes[i])) {
-                        const digitCount = inputLength - i; // e.g. for i=0, digitCount = inputLength (exact)
-                        roundBuckets[i].push(transformSale(sale, num, digitCount, perMatchQty));
+                for (let matchLen = numLen; matchLen >= 1; matchLen--) {
+                    const suffixToCheck = effectiveWinning.slice(-matchLen);
+                    if (num.endsWith(suffixToCheck)) {
+                        // matchLen = how many digits matched (this is the digit_count / round)
+                        roundBucketsMap[matchLen].push(transformSale(sale, num, matchLen, perMatchQty));
                         matched = true;
                         break; // Assigned to highest round, skip lower rounds
                     }
@@ -343,24 +366,25 @@ const checkWinning = async (req, res) => {
         let totalWinners = 0;
         let grandTotalWinningAmount = 0;
 
-        for (let i = 0; i < suffixes.length; i++) {
-            const digitCount = inputLength - i;
-            const isExact = (i === 0);
+        for (let digitCount = inputLength; digitCount >= 1; digitCount--) {
+            const bucket = roundBucketsMap[digitCount];
+            const isExact = (digitCount === inputLength);
+            const suffix = trimmedNumber.slice(-digitCount);
             const label = isExact
                 ? `Exact Match (${digitCount}-digit)`
                 : (digitCount === 1 ? 'Last Digit' : `Last ${digitCount} Digits`);
 
-            const roundWinningAmount = roundBuckets[i].reduce((sum, m) => sum + (m.total_winning_amount || 0), 0);
+            const roundWinningAmount = bucket.reduce((sum, m) => sum + (m.total_winning_amount || 0), 0);
 
             rounds.push({
                 digit_count: digitCount,
                 label: label,
-                suffix: suffixes[i],
-                count: roundBuckets[i].length,
-                matches: roundBuckets[i],
+                suffix: suffix,
+                count: bucket.length,
+                matches: bucket,
                 total_winning_amount: roundWinningAmount
             });
-            totalWinners += roundBuckets[i].length;
+            totalWinners += bucket.length;
             grandTotalWinningAmount += roundWinningAmount;
         }
 
