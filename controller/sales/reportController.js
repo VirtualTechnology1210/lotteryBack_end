@@ -40,21 +40,21 @@ const getSalesReport = async (req, res) => {
             whereClause.user_id = user_id;
         }
 
-        // Date and Time filtering
+        // Date and Time filtering (use string format for consistency)
         if (start_date || end_date) {
             whereClause.createdAt = {};
 
             if (start_date) {
                 const startDateTime = start_time
-                    ? new Date(`${start_date}T${start_time}`)
-                    : new Date(`${start_date}T00:00:00`);
+                    ? `${start_date} ${start_time}`
+                    : `${start_date} 00:00:00`;
                 whereClause.createdAt[Op.gte] = startDateTime;
             }
 
             if (end_date) {
                 const endDateTime = end_time
-                    ? new Date(`${end_date}T${end_time}`)
-                    : new Date(`${end_date}T23:59:59`);
+                    ? `${end_date} ${end_time}`
+                    : `${end_date} 23:59:59`;
                 whereClause.createdAt[Op.lte] = endDateTime;
             }
         }
@@ -201,6 +201,8 @@ const getSalesReportByCategory = async (req, res) => {
             dateFilter += ' AND s.createdAt <= :endDate';
             replacements.endDate = endDateTime;
         }
+
+
 
         // Use raw query for grouped report
         const [categoryReport] = await sequelize.query(`
@@ -350,17 +352,17 @@ const getSalesReportByProduct = async (req, res) => {
  */
 const getSalesReportByUser = async (req, res) => {
     try {
-        const { start_date, end_date, start_time, end_time } = req.query;
+        const { start_date, end_date, start_time, end_time, category_id } = req.query;
 
         // Build date filter for raw query
-        let dateFilter = '';
+        let filters = '';
         const replacements = {};
 
         if (start_date) {
             const startDateTime = start_time
                 ? `${start_date} ${start_time}`
                 : `${start_date} 00:00:00`;
-            dateFilter += ' AND s.createdAt >= :startDate';
+            filters += ' AND s.createdAt >= :startDate';
             replacements.startDate = startDateTime;
         }
 
@@ -368,8 +370,13 @@ const getSalesReportByUser = async (req, res) => {
             const endDateTime = end_time
                 ? `${end_date} ${end_time}`
                 : `${end_date} 23:59:59`;
-            dateFilter += ' AND s.createdAt <= :endDate';
+            filters += ' AND s.createdAt <= :endDate';
             replacements.endDate = endDateTime;
+        }
+
+        if (category_id) {
+            filters += ' AND p.category_id = :categoryId';
+            replacements.categoryId = category_id;
         }
 
         // Use raw query for grouped report
@@ -383,7 +390,8 @@ const getSalesReportByUser = async (req, res) => {
                 SUM(s.price) as total_amount
             FROM sales s
             INNER JOIN users u ON s.user_id = u.id
-            WHERE 1=1 ${dateFilter}
+            INNER JOIN products p ON s.product_id = p.id
+            WHERE 1=1 ${filters}
             GROUP BY u.id, u.name, u.email
             ORDER BY total_amount DESC
         `, { replacements });
@@ -411,7 +419,8 @@ const getSalesReportByUser = async (req, res) => {
                 start_date: start_date || null,
                 end_date: end_date || null,
                 start_time: start_time || null,
-                end_time: end_time || null
+                end_time: end_time || null,
+                category_id: category_id || null
             },
             overall_summary: overallTotals,
             report: reportData
@@ -425,7 +434,7 @@ const getSalesReportByUser = async (req, res) => {
 
 const getRateSummaryReport = async (req, res) => {
     try {
-        const { start_date, end_date, user_id } = req.query;
+        const { start_date, end_date, user_id, category_id } = req.query;
 
         let filters = '';
         const replacements = {};
@@ -448,6 +457,11 @@ const getRateSummaryReport = async (req, res) => {
         if (end_date) {
             filters += ' AND s.createdAt <= :endDate';
             replacements.endDate = `${end_date} 23:59:59`;
+        }
+
+        if (category_id) {
+            filters += ' AND p.category_id = :categoryId';
+            replacements.categoryId = category_id;
         }
 
         // Use raw query for grouped report by rate (product price)
@@ -481,7 +495,8 @@ const getRateSummaryReport = async (req, res) => {
             filters: {
                 start_date: start_date || null,
                 end_date: end_date || null,
-                user_id: user_id || null
+                user_id: user_id || null,
+                category_id: category_id || null
             },
             overall_summary: overallTotals,
             report: reportData
